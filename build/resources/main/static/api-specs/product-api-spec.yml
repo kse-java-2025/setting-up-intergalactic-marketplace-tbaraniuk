@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: "Intergalactic Marketplace API"
+  description: "An Intergalactic Marketplace API for managing and selling products."
+  version: "1.0.0"
+
+servers:
+  - url: "/api/v1"
+    description: "Version 1 of the API"
+
+tags:
+  - name: "Product"
+
+paths:
+  /products:
+    get:
+      tags:
+        - "Product"
+      summary: "Get all products"
+      description: "Returns a list of all products in the system."
+      operationId: "getAllProducts"
+      responses:
+        '200':
+          description: "A list of products."
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Product"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - "Product"
+      summary: "Create a new product"
+      description: "Creates a new product and adds it to the system."
+      operationId: "createProduct"
+      requestBody:
+        description: "The product object to be created."
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        '201':
+          description: "Product created successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '400':
+          description: "Invalid input provided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '409':
+          description: "Conflict. Product with the same name or id already exists."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /products/{productId}:
+    parameters:
+      - name: "productId"
+        in: "path"
+        description: "The ID of the product"
+        required: true
+        schema:
+          type: "string"
+          format: "uuid"
+          example: "123e4567-e89b-12d3-a456-426655440000"
+
+    get:
+      tags:
+        - "Product"
+      summary: "Get a product by ID"
+      description: "Returns a single product based on its unique ID."
+      operationId: "getProductById"
+      responses:
+        '200':
+          description: "The requested product."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '404':
+          description: "Product not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - "Product"
+      summary: "Update an existing product"
+      description: "Updates all fields of an existing product by its ID."
+      operationId: "updateProduct"
+      requestBody:
+        description: "The updated product data."
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        '200':
+          description: "Product updated successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '400':
+          description: "Invalid input provided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '404':
+          description: "Product not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - "Product"
+      summary: "Delete a product by ID"
+      description: "Deletes a product from the system by its ID."
+      operationId: "deleteProduct"
+      responses:
+        '204':
+          description: "No content returned."
+
+components:
+  schemas:
+    Product:
+      type: "object"
+      description: "Represents a product in the system."
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+          description: "The unique identifier for the product."
+          readOnly: true
+          example: "123e4567-e89b-12d3-a456-426655440000"
+        name:
+          type: "string"
+          description: "The name of the product."
+          example: "Super Laptop"
+        description:
+          type: "string"
+          description: "A detailed description of the product."
+          example: "A very fast and powerful laptop."
+        price:
+          type: "number"
+          format: "double"
+          description: "The price of the product."
+          example: 1499.99
+      required:
+        - "id"
+        - "name"
+        - "price"
+
+    ProductInput:
+      type: "object"
+      description: "The data required to create or update a product."
+      properties:
+        name:
+          type: "string"
+          description: "The name of the product."
+          example: "Super Laptop"
+        description:
+          type: "string"
+          description: "A detailed description of the product."
+          example: "A very fast and powerful laptop."
+        price:
+          type: "number"
+          format: "double"
+          description: "The price of the product."
+          example: 1499.99
+      required:
+        - "name"
+        - "price"
+
+    ErrorResponse:
+      type: "object"
+      description: "A standard error response body."
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+          description: "The time the error occurred."
+        status:
+          type: "integer"
+          description: "The HTTP status code."
+          example: 404
+        error:
+          type: "string"
+          description: "A short, human-readable error category."
+          example: "Not Found"
+        message:
+          type: "string"
+          description: "A detailed error message."
+          example: "Product not found with id: 1"
+        path:
+          type: "string"
+          description: "The path of the request that caused the error."
+          example: "/api/v1/products/1"
+      required:
+        - "timestamp"
+        - "status"
+        - "error"
+        - "message"

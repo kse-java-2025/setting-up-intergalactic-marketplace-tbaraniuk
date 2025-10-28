@@ -1,0 +1,64 @@
+# Compiled class files
+*.class
+
+# Package Files
+*.jar
+*.war
+*.ear
+
+# Log files
+*.log
+logs/
+target/*.log
+
+# Build artifacts
+target/
+build/
+bin/
+
+.idea/
+
+# Maven-specific
+.mvn/wrapper/maven-wrapper.jar
+pom.xml.tag
+pom.xml.next
+pom.xml.bak
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+
+# Gradle-specific
+.gradle/
+build/
+out/
+
+# IDE-specific files
+.idea/             # IntelliJ IDEA
+*.iml              # IntelliJ IDEA
+*.ipr              # IntelliJ IDEA
+*.iws              # IntelliJ IDEA
+.vscode/           # VS Code
+.settings/         # Eclipse
+.classpath         # Eclipse
+.project           # Eclipse
+*.sublime-project  # Sublime Text
+*.sublime-workspace # Sublime Text
+
+# Operating System files
+.DS_Store          # macOS
+Thumbs.db          # Windows
+desktop.ini        # Windows
+
+# Temporary files
+*.tmp
+*~
+
+# Test reports
+surefire-reports/
+test-output/
+
+# JRebel
+.jrds/
+
+# Others
+.java-version      # jenv
