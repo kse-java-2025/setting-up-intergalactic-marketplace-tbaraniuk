@@ -1,6 +1,7 @@
 name: Build and Test Coverage
 
-pull_request:
+on:
+  pull_request:
 
 jobs:
   build:
