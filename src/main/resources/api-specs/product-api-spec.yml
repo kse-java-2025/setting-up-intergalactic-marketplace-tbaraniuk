@@ -60,9 +60,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
         '409':
           description: "Conflict. Product with the same name or id already exists."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
           content:
             application/json:
               schema:
@@ -98,6 +104,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
     put:
       tags:
@@ -124,9 +136,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ValidationErrorResponse"
         '404':
           description: "Product not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
           content:
             application/json:
               schema:
@@ -141,6 +159,12 @@ paths:
       responses:
         '204':
           description: "No content returned."
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   schemas:
@@ -226,6 +250,50 @@ components:
         - "status"
         - "error"
         - "message"
+
+    ValidationErrorResponse:
+      type: object
+      description: A standard problem detail response for a 400 validation error.
+      properties:
+        type:
+          type: string
+          description: A URI reference that identifies the problem type.
+          example: "validation-error"
+        title:
+          type: string
+          description: A short, human-readable summary of the problem.
+          example: "Validation Failed"
+        status:
+          type: integer
+          description: The HTTP status code.
+          example: 400
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence.
+          example: "Validation failed. Check 'errors' field for details."
+        timestamp:
+          type: string
+          format: date-time
+          description: The exact time the error occurred.
+          example: "2025-10-29T20:28:54.928087Z"
+        errors:
+          type: array
+          description: A list of specific field-level validation errors.
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      description: Describes a single field-level validation error.
+      properties:
+        fieldName:
+          type: string
+          description: The name of the field that failed validation.
+          example: "name"
+        reason:
+          type: string
+          description: The reason why the validation failed.
+          example: "Name must include a galactic keyword (e.g., star, galaxy, comet)."
 
     ConflictErrorResponse:
       type: "object"

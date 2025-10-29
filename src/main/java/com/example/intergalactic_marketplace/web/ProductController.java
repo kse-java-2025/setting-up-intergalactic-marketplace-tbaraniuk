@@ -3,6 +3,7 @@ package com.example.intergalactic_marketplace.web;
 import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
 import com.example.intergalactic_marketplace.dto.product.ProductDto;
 import com.example.intergalactic_marketplace.service.ProductService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -42,13 +43,15 @@ public class ProductController {
     @PutMapping("/{productId}")
     public ResponseEntity<ProductDto> updateProduct (
         @PathVariable UUID productId,
-        @RequestBody CreateProductDto productDto
+        @Valid @RequestBody CreateProductDto productDto
     ) {
         return ResponseEntity.ok(productService.updateProduct(productId, productDto));
     }
 
     @DeleteMapping("/{productId}")
     public ResponseEntity<Void> deleteProduct (@PathVariable UUID productId) {
+        productService.deleteProduct(productId);
+
         return ResponseEntity.noContent().build();
     }
 }

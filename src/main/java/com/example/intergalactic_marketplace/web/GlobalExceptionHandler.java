@@ -29,6 +29,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(GreetingNotFoundException.class)
     ProblemDetail handleStoreConfigurationNotFoundException(GreetingNotFoundException ex) {
         log.info("Greeting Not Found exception raised");
+
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
         problemDetail.setType(URI.create("greeting-not-found"));
         problemDetail.setTitle("Greeting Not Found");
@@ -40,6 +41,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     ProblemDetail handleNotFoundException(ProductNotFoundException ex) {
         log.info("Product Not Found exception raised");
+
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
         problemDetail.setType(URI.create("product-not-found"));
         problemDetail.setTitle("Product Not Found");
@@ -50,6 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ProductAlreadyExistsException.class)
     ProblemDetail handleProductAlreadyExistsException(ProductAlreadyExistsException ex) {
         log.info("Product Already Exists exception raised");
+
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(CONFLICT, ex.getMessage());
         problemDetail.setType(URI.create("product-already-exists"));
         problemDetail.setTitle("Product Already Exists");
@@ -67,6 +70,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problemDetail.setTitle("Validation Failed");
         problemDetail.setType(URI.create("validation-error"));
         problemDetail.setProperty("timestamp", Instant.now());
+        problemDetail.setProperty("errors", validationResponse);
         problemDetail.setInstance(URI.create(request.getContextPath()));
 
         log.info("Validation error: {}", validationResponse);
