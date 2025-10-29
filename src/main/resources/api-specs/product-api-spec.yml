@@ -148,7 +148,7 @@ components:
       type: "object"
       description: "Represents a product in the system."
       properties:
-        id:
+        uuid:
           type: "string"
           format: "uuid"
           description: "The unique identifier for the product."
@@ -168,7 +168,7 @@ components:
           description: "The price of the product."
           example: 1499.99
       required:
-        - "id"
+        - "uuid"
         - "name"
         - "price"
 
@@ -201,15 +201,19 @@ components:
           type: "string"
           format: "date-time"
           description: "The time the error occurred."
+        type:
+          type: "string"
+          description: "A URI reference that identifies the problem type."
+          example: "product-not-found"
+        title:
+          type: "string"
+          description: "A short, human-readable summary of the problem."
+          example: "Product Not Found"
         status:
           type: "integer"
           description: "The HTTP status code."
           example: 404
-        error:
-          type: "string"
-          description: "A short, human-readable error category."
-          example: "Not Found"
-        message:
+        detail:
           type: "string"
           description: "A detailed error message."
           example: "Product not found with id: 1"
@@ -221,4 +225,40 @@ components:
         - "timestamp"
         - "status"
         - "error"
+        - "message"
+
+    ConflictErrorResponse:
+      type: "object"
+      description: "A conflict error response body."
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+          description: "The time the error occurred."
+        type:
+          type: "string"
+          description: "A URI reference that identifies the problem type."
+          example: "product-already-exists"
+        title:
+          type: "string"
+          description: "A short, human-readable summary of the problem."
+          example: "Product Already Exists"
+        status:
+          type: "integer"
+          description: "The HTTP status code."
+          example: 404
+        detail:
+          type: "string"
+          description: "A detailed error message."
+          example: "Product with name Galaxy Super Puper Laptop already exists"
+        path:
+          type: "string"
+          description: "The path of the request that caused the error."
+          example: "/api/v1/products/"
+      required:
+        - "timestamp"
+        - "title"
+        - "type"
+        - "status"
+        - "detail"
         - "message"

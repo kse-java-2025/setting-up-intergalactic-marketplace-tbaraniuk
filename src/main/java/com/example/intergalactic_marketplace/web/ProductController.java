@@ -3,6 +3,7 @@ package com.example.intergalactic_marketplace.web;
 import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
 import com.example.intergalactic_marketplace.dto.product.ProductDto;
 import com.example.intergalactic_marketplace.service.ProductService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +29,7 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<ProductDto> createProduct (@RequestBody CreateProductDto createProductDto) {
-        return ResponseEntity.ok(productService.createProduct(createProductDto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(createProductDto));
     }
 
     @GetMapping("/{productId}")
