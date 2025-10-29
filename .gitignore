@@ -29,7 +29,6 @@ buildNumber.properties
 
 # Gradle-specific
 .gradle/
-build/
 out/
 
 # IDE-specific files
