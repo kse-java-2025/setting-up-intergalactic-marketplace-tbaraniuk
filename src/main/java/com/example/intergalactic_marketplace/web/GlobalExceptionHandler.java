@@ -26,6 +26,8 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    public static final String VALIDATION_FAILED_MESSAGE = "Validation failed. Check 'errors' field for details.";
+
     @ExceptionHandler(GreetingNotFoundException.class)
     ProblemDetail handleStoreConfigurationNotFoundException(GreetingNotFoundException ex) {
         log.info("Greeting Not Found exception raised");
@@ -66,7 +68,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ParamsViolationDetails> validationResponse = fieldErrors.stream().map(err ->
                 ParamsViolationDetails.builder().reason(err.getDefaultMessage()).fieldName(err.getField()).build()).toList();
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, "Validation failed. Check 'errors' field for details.");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, VALIDATION_FAILED_MESSAGE);
         problemDetail.setTitle("Validation Failed");
         problemDetail.setType(URI.create("validation-error"));
         problemDetail.setProperty("timestamp", Instant.now());

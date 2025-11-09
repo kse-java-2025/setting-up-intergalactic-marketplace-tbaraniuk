@@ -2,6 +2,9 @@ name: Build and Test Coverage
 
 on:
   pull_request:
+    branches:
+      - "main"
+      - "**"
 
 jobs:
   build:
