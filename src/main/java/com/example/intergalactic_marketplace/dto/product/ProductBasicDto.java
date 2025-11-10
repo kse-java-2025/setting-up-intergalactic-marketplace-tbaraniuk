@@ -12,7 +12,7 @@ import java.util.UUID;
 @Jacksonized
 @EqualsAndHashCode
 @AllArgsConstructor
-public class BasicProductDto {
+public class ProductBasicDto {
     UUID uuid;
     String name;
     String description;

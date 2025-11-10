@@ -1,7 +1,8 @@
 package com.example.intergalactic_marketplace.service;
 
 import com.example.intergalactic_marketplace.config.MappersTestConfiguration;
-import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
+import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
@@ -10,16 +11,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(classes = ProductServiceImpl.class)
 @Import(MappersTestConfiguration.class)
@@ -28,8 +35,14 @@ public class ProductServiceTest {
     private static final double PRODUCT_PRICE = 200;
     private static final String PRODUCT_DESCRIPTION = "This is a test product";
 
+    @MockitoBean
+    private RecommendationService recommendationService;
+
     @Autowired
     private ProductService productService;
+
+    @Captor
+    private ArgumentCaptor<UUID> recommendationServiceArgumentCaptor;
 
     private static Stream<SaveProductDto> provideProducts() {
         return Stream.of(
@@ -45,7 +58,7 @@ public class ProductServiceTest {
     @ParameterizedTest
     @MethodSource("provideProducts")
     void testAddProduct(SaveProductDto product) {
-        BasicProductDto result = productService.createProduct(product);
+        ProductBasicDto result = productService.createProduct(product);
 
         assertEquals(product.getName(), result.getName());
         assertEquals(PRODUCT_PRICE, result.getPrice());
@@ -56,23 +69,45 @@ public class ProductServiceTest {
     void testGetAllProducts() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        Page<BasicProductDto> result = productService.getAllProducts(pageable);
+        Page<ProductBasicDto> oldPage = productService.getAllProducts(pageable);
+        assertNotNull(oldPage);
 
-        assertNotNull(result);
-        assertTrue(result.getContent().size() >= 2);
+        SaveProductDto product = buildProduct("Galaxy A44");
+        ProductBasicDto newProduct = productService.createProduct(product);
+        assertNotNull(newProduct);
+
+        Page<ProductBasicDto> newPage = productService.getAllProducts(pageable);
+
+        assertNotNull(newPage);
+        assertEquals(1, newPage.getContent().size() - oldPage.getContent().size());
+    }
+
+    @Test
+    void testGetProduct() {
+        when(recommendationService.getRecommendedProducts(recommendationServiceArgumentCaptor.capture())).thenAnswer(
+                inv -> buildRecommendedProductsMock()
+        );
+
+        SaveProductDto product = buildProduct("Galaxy A45");
+        ProductBasicDto result = productService.createProduct(product);
+
+        ProductBasicDto retrievedProduct = productService.getProduct(result.getUuid());
+
+        assertNotNull(retrievedProduct);
+        assertEquals(result.getUuid(), retrievedProduct.getUuid());
     }
 
     @Test
     void testUpdateProduct() {
         SaveProductDto product = buildProduct("Galaxy A46");
 
-        BasicProductDto result = productService.createProduct(product);
+        ProductBasicDto result = productService.createProduct(product);
 
         assertNotNull(result);
 
         SaveProductDto newProduct = buildProduct("Galaxy A47");
 
-        BasicProductDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
+        ProductBasicDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
 
         assertNotNull(updatedProduct);
         assertEquals(result.getUuid(), updatedProduct.getUuid());
@@ -84,12 +119,18 @@ public class ProductServiceTest {
     @Test
     void testDeleteProduct() {
         SaveProductDto product = buildProduct("Galaxy A48");
-        BasicProductDto result = productService.createProduct(product);
+        ProductBasicDto result = productService.createProduct(product);
 
         productService.deleteProduct(result.getUuid());
 
         Assertions.assertThrows(ProductNotFoundException.class, () -> {
             productService.getProduct(result.getUuid());
         });
+    }
+
+    private RecommendedProducts buildRecommendedProductsMock() {
+        return RecommendedProducts.builder()
+                .recommendedProducts(List.of())
+                .build();
     }
 }

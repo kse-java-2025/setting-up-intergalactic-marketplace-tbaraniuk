@@ -2,11 +2,11 @@ package com.example.intergalactic_marketplace.service.impl;
 
 import com.example.intergalactic_marketplace.domain.product.Product;
 import com.example.intergalactic_marketplace.domain.product.ProductCategory;
-import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
-import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
@@ -35,12 +35,12 @@ public class ProductServiceImpl implements ProductService {
     private final List<ProductCategory> categories = buildProductCategoriesMock();
 
     @Override
-    public Page<BasicProductDto> getAllProducts(Pageable pageable) {
+    public Page<ProductBasicDto> getAllProducts(Pageable pageable) {
         int pageSize = pageable.getPageSize();
         int currentPage = pageable.getPageNumber();
         int start = currentPage * pageSize;
 
-        List<BasicProductDto> dtos;
+        List<ProductBasicDto> dtos;
         int totalProducts = products.size();
 
         if (totalProducts < start) {
@@ -52,7 +52,7 @@ public class ProductServiceImpl implements ProductService {
             dtos = productMapper.toProductDtoList(productPageList);
         }
 
-        Page<BasicProductDto> productPage = new PageImpl<>(dtos, pageable, dtos.size());
+        Page<ProductBasicDto> productPage = new PageImpl<>(dtos, pageable, dtos.size());
 
         log.info("getAllProducts. Returning page {} of {} with {} products. Total products: {}",
                 productPage.getNumber(), productPage.getTotalPages(),
@@ -62,7 +62,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public BasicProductDto createProduct(SaveProductDto productDto) {
+    public ProductBasicDto createProduct(SaveProductDto productDto) {
         Optional<Product> existingProduct = products.stream()
                 .filter(item -> item.getName().equals(productDto.getName()))
                 .findFirst();
@@ -93,7 +93,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public BasicProductDto getProduct(java.util.UUID productId) {
+    public ProductBasicDto getProduct(java.util.UUID productId) {
         Optional<Product> existingProduct = Optional.ofNullable(products.stream()
                 .filter(item -> item.getUuid().equals(productId))
                 .findFirst()
@@ -104,13 +104,13 @@ public class ProductServiceImpl implements ProductService {
 
         log.info("getProduct: productId={}", productId);
 
-        RecommendedProducts recommendedProducts = recommendationService.getRecommendedProducts(productId);
+        RecommendedProductsDto recommendedProductsDto = recommendationService.getRecommendedProducts(productId);
 
-        return productMapper.toProductDetailDto(existingProduct.get(), recommendedProducts);
+        return productMapper.toProductDetailDto(existingProduct.get(), recommendedProductsDto);
     }
 
     @Override
-    public BasicProductDto updateProduct(UUID productId, SaveProductDto productDto) {
+    public ProductBasicDto updateProduct(UUID productId, SaveProductDto productDto) {
         Optional<Product> existingProduct = Optional.ofNullable(products.stream()
                 .filter(item -> item.getUuid().equals(productId))
                 .findFirst()

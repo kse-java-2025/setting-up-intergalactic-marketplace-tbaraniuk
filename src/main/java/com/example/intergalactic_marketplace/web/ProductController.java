@@ -1,6 +1,6 @@
 package com.example.intergalactic_marketplace.web;
 
-import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
@@ -27,14 +27,14 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<BasicProductDto>> getAllProducts (Pageable pageable) {
-        Page<BasicProductDto> productPate = productService.getAllProducts(pageable);
+    public ResponseEntity<Page<ProductBasicDto>> getAllProducts (Pageable pageable) {
+        Page<ProductBasicDto> productPate = productService.getAllProducts(pageable);
 
         return ResponseEntity.ok(productPate);
     }
 
     @PostMapping
-    public ResponseEntity<BasicProductDto> createProduct (@Valid @RequestBody SaveProductDto createProductDto) {
+    public ResponseEntity<ProductBasicDto> createProduct (@Valid @RequestBody SaveProductDto createProductDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(createProductDto));
     }
 
@@ -44,14 +44,14 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ResponseEntity<BasicProductDto> getProduct (
+    public ResponseEntity<ProductBasicDto> getProduct (
         @PathVariable UUID productId
     ) {
         return ResponseEntity.ok(productService.getProduct(productId));
     }
 
     @PutMapping("/{productId}")
-    public ResponseEntity<BasicProductDto> updateProduct (
+    public ResponseEntity<ProductBasicDto> updateProduct (
         @PathVariable UUID productId,
         @Valid @RequestBody SaveProductDto productDto
     ) {

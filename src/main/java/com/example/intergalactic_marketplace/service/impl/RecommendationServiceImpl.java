@@ -3,6 +3,7 @@ package com.example.intergalactic_marketplace.service.impl;
 import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendationClientRequestDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendationClientResponseDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.RecommendedProductsRetrievalException;
 import com.example.intergalactic_marketplace.service.mapper.RecommendationServiceMapper;
@@ -37,7 +38,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
-    public RecommendedProducts getRecommendedProducts(UUID productId) {
+    public RecommendedProductsDto getRecommendedProducts(UUID productId) {
         log.info("getRecommendedProducts: productId={}", productId);
         RecommendationClientRequestDto recommendationClientRequestDto = recommendationServiceMapper.toRecommendationClientRequestDto(productId, DEFAULT_NUMBER_OF_RECOMMENDATIONS);
 
@@ -53,10 +54,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                     })
                     .body(RecommendationClientResponseDto.class);
 
-            return recommendationServiceMapper.toRecommendedProducts(recommendationClientResponseDto);
+            RecommendedProducts recommendedProducts = recommendationServiceMapper.toRecommendedProducts(recommendationClientResponseDto);
+
+            return recommendationServiceMapper.toRecommendedProductsDto(recommendedProducts);
         } catch (Exception e) {
             log.error("getRecommendedProducts: failed to fetch recommendations for productId={}", productId, e);
-            return RecommendedProducts.builder()
+            return RecommendedProductsDto.builder()
                     .recommendedProducts(List.of())
                     .build();
         }
