@@ -1,15 +1,18 @@
 package com.example.intergalactic_marketplace.web;
 
-import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
-import com.example.intergalactic_marketplace.dto.product.ProductDto;
+import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
 import com.example.intergalactic_marketplace.service.ProductService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 
@@ -24,26 +27,33 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<ProductDto> getAllProducts () {
-        return productService.getAllProducts();
+    public ResponseEntity<Page<BasicProductDto>> getAllProducts (Pageable pageable) {
+        Page<BasicProductDto> productPate = productService.getAllProducts(pageable);
+
+        return ResponseEntity.ok(productPate);
     }
 
     @PostMapping
-    public ResponseEntity<ProductDto> createProduct (@Valid @RequestBody CreateProductDto createProductDto) {
+    public ResponseEntity<BasicProductDto> createProduct (@Valid @RequestBody SaveProductDto createProductDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(createProductDto));
     }
 
+    @PostMapping("/createCategory")
+    public ResponseEntity<ProductCategoryDto> createProductCategory(@Valid @RequestBody SaveProductCategoryDto createProductCategoryDto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProductCategory(createProductCategoryDto));
+    }
+
     @GetMapping("/{productId}")
-    public ResponseEntity<ProductDto> getProduct (
+    public ResponseEntity<BasicProductDto> getProduct (
         @PathVariable UUID productId
     ) {
         return ResponseEntity.ok(productService.getProduct(productId));
     }
 
     @PutMapping("/{productId}")
-    public ResponseEntity<ProductDto> updateProduct (
+    public ResponseEntity<BasicProductDto> updateProduct (
         @PathVariable UUID productId,
-        @Valid @RequestBody CreateProductDto productDto
+        @Valid @RequestBody SaveProductDto productDto
     ) {
         return ResponseEntity.ok(productService.updateProduct(productId, productDto));
     }

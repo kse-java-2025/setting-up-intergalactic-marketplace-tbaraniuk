@@ -1,6 +1,6 @@
 package com.example.intergalactic_marketplace.web;
 
-import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
@@ -31,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("ProductController Integration Tests")
 @Tag("product-service")
 public class ProductControllerIT {
-    private static final CreateProductDto CRATE_PRODUCT_DTO = buildProduct("Test Galaxy Product");
-    private static final CreateProductDto INVALID_PRODUCT_DTO = buildProduct("Test");
+    private static final SaveProductDto CRATE_PRODUCT_DTO = buildProduct("Test Galaxy Product");
+    private static final SaveProductDto INVALID_PRODUCT_DTO = buildProduct("Test");
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -43,8 +43,8 @@ public class ProductControllerIT {
     @MockitoSpyBean
     private ProductService productService;
 
-    private static CreateProductDto buildProduct(String name) {
-        return CreateProductDto.builder().name(name).price(100.0).description("Test product").build();
+    private static SaveProductDto buildProduct(String name) {
+        return SaveProductDto.builder().name(name).price(100.0).description("Test product").build();
     }
 
     @BeforeEach

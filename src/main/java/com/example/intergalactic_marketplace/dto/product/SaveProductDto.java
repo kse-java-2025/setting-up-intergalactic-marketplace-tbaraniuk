@@ -12,8 +12,8 @@ import lombok.extern.jackson.Jacksonized;
 @Value
 @Builder(toBuilder = true)
 @Jacksonized
-@GroupSequence({CreateProductDto.class, ExtendedValidation.class})
-public class CreateProductDto {
+@GroupSequence({SaveProductDto.class, ExtendedValidation.class})
+public class SaveProductDto {
     @NotNull(message = "The name of the product is required")
     @ValidProductGalacticName
     String name;

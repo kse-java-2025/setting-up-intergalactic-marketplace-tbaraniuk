@@ -1,19 +1,24 @@
 package com.example.intergalactic_marketplace.service;
 
-import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
-import com.example.intergalactic_marketplace.dto.product.ProductDto;
+import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface ProductService {
-    List<ProductDto> getAllProducts();
+    Page<BasicProductDto> getAllProducts(Pageable pageable);
 
-    ProductDto createProduct(CreateProductDto productDto);
+    BasicProductDto createProduct(SaveProductDto productDto);
 
-    ProductDto getProduct(UUID productId);
+    ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto);
 
-    ProductDto updateProduct(UUID productId, CreateProductDto productDto);
+    BasicProductDto getProduct(UUID productId);
+
+    BasicProductDto updateProduct(UUID productId, SaveProductDto productDto);
 
     void deleteProduct(UUID productId);
 }

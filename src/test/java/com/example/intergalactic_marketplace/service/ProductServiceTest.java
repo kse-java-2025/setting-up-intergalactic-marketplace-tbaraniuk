@@ -1,21 +1,22 @@
 package com.example.intergalactic_marketplace.service;
 
 import com.example.intergalactic_marketplace.config.MappersTestConfiguration;
-import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
-import com.example.intergalactic_marketplace.dto.product.ProductDto;
+import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,21 +31,21 @@ public class ProductServiceTest {
     @Autowired
     private ProductService productService;
 
-    private static Stream<CreateProductDto> provideProducts() {
+    private static Stream<SaveProductDto> provideProducts() {
         return Stream.of(
                 buildProduct("Galaxy Super Test"),
                 buildProduct("Super Duper Star")
         );
     }
 
-    private static CreateProductDto buildProduct(String name) {
-        return CreateProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
+    private static SaveProductDto buildProduct(String name) {
+        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
     }
 
     @ParameterizedTest
     @MethodSource("provideProducts")
-    void testAddProduct(CreateProductDto product) {
-        ProductDto result = productService.createProduct(product);
+    void testAddProduct(SaveProductDto product) {
+        BasicProductDto result = productService.createProduct(product);
 
         assertEquals(product.getName(), result.getName());
         assertEquals(PRODUCT_PRICE, result.getPrice());
@@ -53,23 +54,25 @@ public class ProductServiceTest {
 
     @Test
     void testGetAllProducts() {
-        List<ProductDto> result = productService.getAllProducts();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Page<BasicProductDto> result = productService.getAllProducts(pageable);
 
         assertNotNull(result);
-        assertTrue(result.size() >= 2);
+        assertTrue(result.getContent().size() >= 2);
     }
 
     @Test
     void testUpdateProduct() {
-        CreateProductDto product = buildProduct("Galaxy A46");
+        SaveProductDto product = buildProduct("Galaxy A46");
 
-        ProductDto result = productService.createProduct(product);
+        BasicProductDto result = productService.createProduct(product);
 
         assertNotNull(result);
 
-        CreateProductDto newProduct = buildProduct("Galaxy A47");
+        SaveProductDto newProduct = buildProduct("Galaxy A47");
 
-        ProductDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
+        BasicProductDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
 
         assertNotNull(updatedProduct);
         assertEquals(result.getUuid(), updatedProduct.getUuid());
@@ -80,8 +83,8 @@ public class ProductServiceTest {
 
     @Test
     void testDeleteProduct() {
-        CreateProductDto product = buildProduct("Galaxy A48");
-        ProductDto result = productService.createProduct(product);
+        SaveProductDto product = buildProduct("Galaxy A48");
+        BasicProductDto result = productService.createProduct(product);
 
         productService.deleteProduct(result.getUuid());
 

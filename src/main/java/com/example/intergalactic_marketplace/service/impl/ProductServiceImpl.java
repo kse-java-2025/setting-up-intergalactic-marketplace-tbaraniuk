@@ -1,14 +1,22 @@
 package com.example.intergalactic_marketplace.service.impl;
 
 import com.example.intergalactic_marketplace.domain.product.Product;
-import com.example.intergalactic_marketplace.dto.product.CreateProductDto;
-import com.example.intergalactic_marketplace.dto.product.ProductDto;
+import com.example.intergalactic_marketplace.domain.product.ProductCategory;
+import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
+import com.example.intergalactic_marketplace.dto.product.BasicProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
 import com.example.intergalactic_marketplace.service.ProductService;
+import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,18 +28,41 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
+    private final RecommendationService recommendationService;
     private final ProductMapper productMapper;
 
-    private CopyOnWriteArrayList<Product> products = buildProductsMock();
+    private final CopyOnWriteArrayList<Product> products = buildProductsMock();
+    private final List<ProductCategory> categories = buildProductCategoriesMock();
 
     @Override
-    public List<ProductDto> getAllProducts() {
-        log.info("getAllProducts. Products length: {}", products.size());
-        return productMapper.toProductDtoList(products);
+    public Page<BasicProductDto> getAllProducts(Pageable pageable) {
+        int pageSize = pageable.getPageSize();
+        int currentPage = pageable.getPageNumber();
+        int start = currentPage * pageSize;
+
+        List<BasicProductDto> dtos;
+        int totalProducts = products.size();
+
+        if (totalProducts < start) {
+            dtos = List.of();
+        } else {
+            int end = Math.min(start + pageSize, products.size());
+            List<Product> productPageList = products.subList(start, end);
+
+            dtos = productMapper.toProductDtoList(productPageList);
+        }
+
+        Page<BasicProductDto> productPage = new PageImpl<>(dtos, pageable, dtos.size());
+
+        log.info("getAllProducts. Returning page {} of {} with {} products. Total products: {}",
+                productPage.getNumber(), productPage.getTotalPages(),
+                productPage.getNumberOfElements(), productPage.getTotalElements());
+
+        return productPage;
     }
 
     @Override
-    public ProductDto createProduct(CreateProductDto productDto) {
+    public BasicProductDto createProduct(SaveProductDto productDto) {
         Optional<Product> existingProduct = products.stream()
                 .filter(item -> item.getName().equals(productDto.getName()))
                 .findFirst();
@@ -52,7 +83,17 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductDto getProduct(java.util.UUID productId) {
+    public ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto) {
+        UUID productCategoryId = UUID.randomUUID();
+        ProductCategory savedProductCategory = productMapper.toProductCategory(productCategoryId, productCategoryDto);
+
+        categories.add(savedProductCategory);
+
+        return productMapper.toProductCategoryDto(savedProductCategory);
+    }
+
+    @Override
+    public BasicProductDto getProduct(java.util.UUID productId) {
         Optional<Product> existingProduct = Optional.ofNullable(products.stream()
                 .filter(item -> item.getUuid().equals(productId))
                 .findFirst()
@@ -63,11 +104,13 @@ public class ProductServiceImpl implements ProductService {
 
         log.info("getProduct: productId={}", productId);
 
-        return productMapper.toProductDto(existingProduct.get());
+        RecommendedProducts recommendedProducts = recommendationService.getRecommendedProducts(productId);
+
+        return productMapper.toProductDetailDto(existingProduct.get(), recommendedProducts);
     }
 
     @Override
-    public ProductDto updateProduct(UUID productId, CreateProductDto productDto) {
+    public BasicProductDto updateProduct(UUID productId, SaveProductDto productDto) {
         Optional<Product> existingProduct = Optional.ofNullable(products.stream()
                 .filter(item -> item.getUuid().equals(productId))
                 .findFirst()
@@ -99,25 +142,40 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
+    private CopyOnWriteArrayList<ProductCategory> buildProductCategoriesMock() {
+        return new CopyOnWriteArrayList<>(
+                List.of(
+                        ProductCategory.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Laptops")
+                                .build(),
+                        ProductCategory.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Mobiles")
+                                .build()
+                )
+        );
+    }
+
     private CopyOnWriteArrayList<Product> buildProductsMock() {
         return new CopyOnWriteArrayList<>(
                 List.of(
-                    Product.builder()
-                        .uuid(UUID.randomUUID())
-                        .name("Super Star Laptop")
-                        .description("An awesome super star laptop")
-                        .price(100.0)
-                        .build(),
-                    Product.builder()
-                        .uuid(UUID.randomUUID())
-                        .name("Galaxy Note 10")
-                        .price(50.5)
-                        .build(),
-                    Product.builder()
-                        .uuid(UUID.randomUUID())
-                        .name("Comet Mobile")
-                        .price(60.5)
-                        .build()
+                        Product.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Super Star Laptop")
+                                .description("An awesome super star laptop")
+                                .price(100.0)
+                                .build(),
+                        Product.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Galaxy Note 10")
+                                .price(50.5)
+                                .build(),
+                        Product.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Comet Mobile")
+                                .price(60.5)
+                                .build()
                 )
         );
     }
