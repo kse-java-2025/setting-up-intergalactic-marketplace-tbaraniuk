@@ -38,9 +38,14 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(createProductDto));
     }
 
-    @PostMapping("/createCategory")
+    @PostMapping("/productCategory")
     public ResponseEntity<ProductCategoryDto> createProductCategory(@Valid @RequestBody SaveProductCategoryDto createProductCategoryDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProductCategory(createProductCategoryDto));
+    }
+
+    @PutMapping("/productCategory/{productCategoryId}")
+    public ResponseEntity<ProductCategoryDto> updateProductCategory(@PathVariable UUID productCategoryId, @Valid @RequestBody SaveProductCategoryDto productCategoryDto) {
+        return ResponseEntity.ok(productService.updateProductCategory(productCategoryId, productCategoryDto));
     }
 
     @GetMapping("/{productId}")

@@ -15,5 +15,5 @@ public class Product {
     Double price;
 
     @Builder.Default
-    Set<ProductCategory> categories = Set.of();
+    Set<UUID> categories = Set.of();
 }

@@ -1,9 +1,12 @@
 package com.example.intergalactic_marketplace.service;
 
 import com.example.intergalactic_marketplace.config.MappersTestConfiguration;
-import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
 import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
 import org.junit.jupiter.api.Assertions;
@@ -22,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.when;
 public class ProductServiceTest {
     private static final double PRODUCT_PRICE = 200;
     private static final String PRODUCT_DESCRIPTION = "This is a test product";
+    private static final String PRODUCT_CATEGORY_NAME = "Electronics";
 
     @MockitoBean
     private RecommendationService recommendationService;
@@ -128,9 +133,40 @@ public class ProductServiceTest {
         });
     }
 
-    private RecommendedProducts buildRecommendedProductsMock() {
-        return RecommendedProducts.builder()
-                .recommendedProducts(List.of())
+    @Test
+    @DisplayName("Should create a new product category successfully")
+    void testCreateProductCategory() {
+        SaveProductCategoryDto categoryDto = buildProductCategoryMock(PRODUCT_CATEGORY_NAME);
+
+        ProductCategoryDto result = productService.createProductCategory(categoryDto);
+
+        assertNotNull(result);
+        assertNotNull(result.getUuid());
+        assertEquals(PRODUCT_CATEGORY_NAME, result.getName());
+    }
+
+    private SaveProductCategoryDto buildProductCategoryMock(String productCategoryName) {
+        return SaveProductCategoryDto.builder()
+                .name(productCategoryName)
+                .build();
+    }
+
+    private RecommendedProductsDto buildRecommendedProductsMock() {
+        return RecommendedProductsDto.builder()
+                .recommendedProducts(List.of(
+                        RecommendedProductDto.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Recommended Product 1")
+                                .price(100.0)
+                                .categories(Set.of())
+                                .build(),
+                        RecommendedProductDto.builder()
+                                .uuid(UUID.randomUUID())
+                                .name("Recommended Product 2")
+                                .price(150.0)
+                                .categories(Set.of())
+                                .build()
+                ))
                 .build();
     }
 }

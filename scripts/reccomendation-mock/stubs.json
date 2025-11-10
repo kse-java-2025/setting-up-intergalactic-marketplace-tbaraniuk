@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/recommendations"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "productId": "a1b2c3d4-0001-4000-8000-000000000001",
+      "recommendedProducts": [
+        {
+          "uuid": "a1b2c3d4-0002-4000-8000-000000000002",
+          "name": "Cosmic Laptop",
+          "price": 1499.99,
+          "categories": [
+            {
+              "uuid": "c1d2e3f4-0001-4000-8000-00000000000A",
+              "name": "Electronics"
+            },
+            {
+              "uuid": "c1d2e3f4-0002-4000-8000-00000000000B",
+              "name": "On Sale"
+            }
+          ]
+        },
+        {
+          "uuid": "a1b2c3d4-0003-4000-8000-000000000003",
+          "name": "Galaxy Mouse",
+          "price": 89.50,
+          "categories": [
+            {
+              "uuid": "c1d2e3f4-0001-4000-8000-00000000000A",
+              "name": "Electronics"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

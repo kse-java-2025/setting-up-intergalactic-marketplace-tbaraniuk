@@ -1,0 +1,20 @@
+version: '3.8'
+
+networks:
+  services:
+    name: cluster
+
+services:
+  galactic-recommendation-service:
+    build:
+      context: ../..
+      dockerfile: scripts/docker/Dockerfile
+    networks:
+      - services
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    ports:
+      - "8089:8080"

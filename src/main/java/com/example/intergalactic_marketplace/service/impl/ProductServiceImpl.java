@@ -2,14 +2,13 @@ package com.example.intergalactic_marketplace.service.impl;
 
 import com.example.intergalactic_marketplace.domain.product.Product;
 import com.example.intergalactic_marketplace.domain.product.ProductCategory;
-import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
-import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.*;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,10 +18,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -49,10 +47,15 @@ public class ProductServiceImpl implements ProductService {
             int end = Math.min(start + pageSize, products.size());
             List<Product> productPageList = products.subList(start, end);
 
-            dtos = productMapper.toProductDtoList(productPageList);
+            dtos = productPageList.stream()
+                    .map(product -> {
+                        Set<ProductCategoryDto> categoryDtos = getCategoriesByIds(product.getCategories());
+                        return productMapper.toProductDto(product, categoryDtos);
+                    })
+                    .collect(Collectors.toList());
         }
 
-        Page<ProductBasicDto> productPage = new PageImpl<>(dtos, pageable, dtos.size());
+        Page<ProductBasicDto> productPage = new PageImpl<>(dtos, pageable, totalProducts);
 
         log.info("getAllProducts. Returning page {} of {} with {} products. Total products: {}",
                 productPage.getNumber(), productPage.getTotalPages(),
@@ -73,13 +76,15 @@ public class ProductServiceImpl implements ProductService {
             throw new ProductAlreadyExistsException(existingProduct.get().getName());
         }
 
+        Set<UUID> categoryIds = resolveCategoriesIds(productDto.getCategories());
+
         UUID productId = UUID.randomUUID();
-        Product savedProduct = productMapper.toProduct(productId, productDto);
+        Product savedProduct = productMapper.toProduct(productId, productDto, categoryIds);
         products.add(savedProduct);
 
         log.info("createProduct: product={}", savedProduct);
 
-        return productMapper.toProductDto(savedProduct);
+        return productMapper.toProductDto(savedProduct, getCategoriesByIds(categoryIds));
     }
 
     @Override
@@ -87,9 +92,35 @@ public class ProductServiceImpl implements ProductService {
         UUID productCategoryId = UUID.randomUUID();
         ProductCategory savedProductCategory = productMapper.toProductCategory(productCategoryId, productCategoryDto);
 
+        boolean exists = categories.stream()
+                .anyMatch(cat -> cat.getName().equalsIgnoreCase(productCategoryDto.getName()));
+
+        if (exists) {
+            throw new ProductCategoryAlreadyExistsException(productCategoryDto.getName());
+        }
+
         categories.add(savedProductCategory);
 
         return productMapper.toProductCategoryDto(savedProductCategory);
+    }
+
+    @Override
+    public ProductCategoryDto updateProductCategory(UUID productCategoryId, SaveProductCategoryDto productCategoryDto) {
+        Optional<ProductCategory> existingProductCategory = categories.stream()
+                .filter(item -> item.getUuid().equals(productCategoryId))
+                .findFirst();
+
+        if (existingProductCategory.isPresent()) {
+            ProductCategory updatedProductCategory = productMapper.toProductCategory(
+                    existingProductCategory.get().getUuid(), productCategoryDto);
+
+            categories.remove(existingProductCategory.get());
+            categories.add(updatedProductCategory);
+
+            return productMapper.toProductCategoryDto(updatedProductCategory);
+        }
+
+        return null;
     }
 
     @Override
@@ -106,7 +137,9 @@ public class ProductServiceImpl implements ProductService {
 
         RecommendedProductsDto recommendedProductsDto = recommendationService.getRecommendedProducts(productId);
 
-        return productMapper.toProductDetailDto(existingProduct.get(), recommendedProductsDto);
+        Set<ProductCategoryDto> categoryDtos = getCategoriesByIds(existingProduct.get().getCategories());
+
+        return productMapper.toProductDetailDto(existingProduct.get(), categoryDtos, recommendedProductsDto);
     }
 
     @Override
@@ -121,11 +154,13 @@ public class ProductServiceImpl implements ProductService {
 
         log.info("updateProduct: productId={}", productId);
 
-        Product updatedProduct = productMapper.toProduct(productId, productDto);
+        Set<UUID> categoryIds = resolveCategoriesIds(productDto.getCategories());
+
+        Product updatedProduct = productMapper.toProduct(productId, productDto, categoryIds);
         products.remove(existingProduct.get());
         products.add(updatedProduct);
 
-        return productMapper.toProductDto(updatedProduct);
+        return productMapper.toProductDto(updatedProduct, getCategoriesByIds(categoryIds));
     }
 
     @Override
@@ -140,6 +175,37 @@ public class ProductServiceImpl implements ProductService {
             products.remove(existingProduct.get());
             log.info("deleteProduct: product removed");
         }
+    }
+
+    private Set<UUID> resolveCategoriesIds(List<ProductCategoryDto> productCategoryDtos) {
+        if (productCategoryDtos == null || productCategoryDtos.isEmpty()) {
+            return Set.of();
+        }
+
+        return productCategoryDtos.stream()
+                .map(dto -> {
+                    categories.stream()
+                            .filter(cat -> cat.getUuid().equals(dto.getUuid()))
+                            .findFirst()
+                            .orElseThrow(() -> new ProductCategoryNotFoundException(dto.getName()));
+                    return dto.getUuid();
+                })
+                .collect(Collectors.toSet());
+    }
+
+    private Set<ProductCategoryDto> getCategoriesByIds(Set<UUID> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return categoryIds.stream()
+                .map(id -> categories.stream()
+                        .filter(cat -> cat.getUuid().equals(id))
+                        .findFirst()
+                        .map(productMapper::toProductCategoryDto)
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
     }
 
     private CopyOnWriteArrayList<ProductCategory> buildProductCategoriesMock() {
