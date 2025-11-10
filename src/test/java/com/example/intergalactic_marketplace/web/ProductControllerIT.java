@@ -115,14 +115,14 @@ public class ProductControllerIT {
                 .andExpect(result -> {
                     System.out.println(result.getResponse().getContentAsString());
                 });
-//
-//        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
-//                        .accept(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
-//                )
-//                .andExpect(status().isConflict())
-//                .andExpect(jsonPath("$.type").value("product-already-exists"))
-//                .andExpect(jsonPath("$.title").value("Product Already Exists"));
+
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("product-already-exists"))
+                .andExpect(jsonPath("$.title").value("Product Already Exists"));
     }
 
     @Test
