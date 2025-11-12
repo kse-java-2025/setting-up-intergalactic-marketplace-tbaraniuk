@@ -7,9 +7,11 @@ import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -60,8 +63,19 @@ public class ProductServiceTest {
         return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
     }
 
+    private static SaveProductDto buildProductWithCategories(String name, List<ProductCategoryDto> categories) {
+        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).categories(categories).build();
+    }
+
+    private static SaveProductCategoryDto buildProductCategory(String productCategoryName) {
+        return SaveProductCategoryDto.builder()
+                .name(productCategoryName)
+                .build();
+    }
+
     @ParameterizedTest
     @MethodSource("provideProducts")
+    @DisplayName("Should create a new product successfully")
     void testAddProduct(SaveProductDto product) {
         ProductBasicDto result = productService.createProduct(product);
 
@@ -71,6 +85,7 @@ public class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Should get all products successfully")
     void testGetAllProducts() {
         Pageable pageable = PageRequest.of(0, 10);
 
@@ -88,6 +103,7 @@ public class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Should get a product successfully")
     void testGetProduct() {
         when(recommendationService.getRecommendedProducts(recommendationServiceArgumentCaptor.capture())).thenAnswer(
                 inv -> buildRecommendedProductsMock()
@@ -103,6 +119,7 @@ public class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Should update a product successfully")
     void testUpdateProduct() {
         SaveProductDto product = buildProduct("Galaxy A46");
 
@@ -122,6 +139,7 @@ public class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Should delete a product successfully")
     void testDeleteProduct() {
         SaveProductDto product = buildProduct("Galaxy A48");
         ProductBasicDto result = productService.createProduct(product);
@@ -136,7 +154,7 @@ public class ProductServiceTest {
     @Test
     @DisplayName("Should create a new product category successfully")
     void testCreateProductCategory() {
-        SaveProductCategoryDto categoryDto = buildProductCategoryMock(PRODUCT_CATEGORY_NAME);
+        SaveProductCategoryDto categoryDto = buildProductCategory(PRODUCT_CATEGORY_NAME);
 
         ProductCategoryDto result = productService.createProductCategory(categoryDto);
 
@@ -145,10 +163,35 @@ public class ProductServiceTest {
         assertEquals(PRODUCT_CATEGORY_NAME, result.getName());
     }
 
-    private SaveProductCategoryDto buildProductCategoryMock(String productCategoryName) {
-        return SaveProductCategoryDto.builder()
-                .name(productCategoryName)
+    @Test
+    void testCreateProductWithCategories() {
+        SaveProductCategoryDto categoryDto = buildProductCategory("Headphones");
+        SaveProductCategoryDto categoryDto2 = buildProductCategory("Tablets");
+
+        ProductCategoryDto category1 = productService.createProductCategory(categoryDto);
+        ProductCategoryDto category2 = productService.createProductCategory(categoryDto2);
+
+        SaveProductDto productDto = buildProductWithCategories("Test", List.of(category1, category2));
+
+        ProductBasicDto result = productService.createProduct(productDto);
+
+        assertNotNull(result);
+        assertEquals(2, result.getCategories().size());
+    }
+
+    @Test
+    @DisplayName("Should throw ProductCategoryNotFoundException when creating a new product category with non-existent category")
+    void testCreateProductWithNonExistentCategory() {
+        ProductCategoryDto fakeCategory = ProductCategoryDto.builder()
+                .uuid(UUID.randomUUID())
+                .name("Non-Existent")
                 .build();
+
+        SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", List.of(fakeCategory));
+
+        assertThrows(ProductCategoryNotFoundException.class, () -> {
+            productService.createProduct(productDto);
+        });
     }
 
     private RecommendedProductsDto buildRecommendedProductsMock() {

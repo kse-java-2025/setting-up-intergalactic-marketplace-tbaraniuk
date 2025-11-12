@@ -2,6 +2,7 @@ package com.example.intergalactic_marketplace.web;
 
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.GreetingNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.ParamsViolationDetails;
@@ -63,7 +64,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problemDetail;
     }
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(ProductCategoryAlreadyExistsException.class)
     ProblemDetail handleProductCategoryAlreadyExistsException(ProductCategoryAlreadyExistsException ex) {
         log.warn("Product Category Already Exists exception raised");
 
@@ -74,7 +75,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problemDetail;
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler(ProductCategoryNotFoundException.class)
     ProblemDetail handleProductCategoryNotFoundException(ProductCategoryAlreadyExistsException ex) {
         log.warn("Product Category Not Found exception raised");
 
