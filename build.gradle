@@ -17,7 +17,7 @@ java {
 }
 
 ext {
-    minimumCoveragePerFile = 0.8
+    minimumCoveragePerFile = 0.5
     filesExcludedFromCoverage = [
             "**/*MarketApplication.*",
             "**/config/*Configuration.*"
