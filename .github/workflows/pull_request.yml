@@ -2,6 +2,9 @@ name: Build and Test Coverage
 
 on:
   pull_request:
+    branches:
+      - 'main'
+      - '**'
 
 jobs:
   build:
@@ -21,15 +24,15 @@ jobs:
           java-version: '17'
 
       # Cache Gradle dependencies
-#      - name: Cache Gradle dependencies
-#        uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/.gradle/caches
-#            ~/.gradle/wrapper
-#          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle.properties', '**/gradle-wrapper.properties') }}
-#          restore-keys: |
-#            gradle-
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle.properties', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-
 
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew

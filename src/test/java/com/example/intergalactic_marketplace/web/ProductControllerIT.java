@@ -1,0 +1,332 @@
+package com.example.intergalactic_marketplace.web;
+
+import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.service.ProductService;
+import com.example.intergalactic_marketplace.service.RecommendationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
+
+import static com.example.intergalactic_marketplace.web.GlobalExceptionHandler.VALIDATION_FAILED_MESSAGE;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.Mockito.reset;
+import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.OK;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+@DisplayName("ProductController Integration Tests")
+@Tag("product-service")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+public class ProductControllerIT {
+    private static final SaveProductDto CRATE_PRODUCT_DTO = buildProduct("Cosmic Product");
+    private static final SaveProductDto INVALID_PRODUCT_DTO = buildProduct("Test");
+    private static final SaveProductCategoryDto CREATE_PRODUCT_CATEGORY_DTO = buildProductCategory("Test Product");
+
+    @RegisterExtension
+    static WireMockExtension wireMockExtension = WireMockExtension.newInstance().options(wireMockConfig().dynamicHttpsPort()).configureStaticDsl(true).build();
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoSpyBean
+    private RecommendationService recommendationService;
+
+    @MockitoSpyBean
+    private ProductService productService;
+
+    @DynamicPropertySource
+    static void setupTestContainerProperties(DynamicPropertyRegistry registry) {
+        registry.add("application.recommendation-service.base-url", wireMockExtension::baseUrl);
+        WireMock.configureFor(wireMockExtension.getPort());
+    }
+
+    private static SaveProductDto buildProduct(String name) {
+        return SaveProductDto.builder().name(name).price(100.0).description("Test product").build();
+    }
+
+    private static SaveProductDto buildProductWithCategories(String name, List<ProductCategoryDto> categories) {
+        return SaveProductDto.builder().name(name).price(100.0).description("Test product").categories(categories).build();
+    }
+
+    private static SaveProductCategoryDto buildProductCategory(String productCategoryName) {
+        return SaveProductCategoryDto.builder()
+                .name(productCategoryName)
+                .build();
+    }
+
+    @BeforeEach
+    void setUp() {
+        reset(productService, recommendationService);
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should handle ProductNotFoundException")
+    void testProductNotFoundException() {
+        UUID nonExistentId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/v1/products/{id}", nonExistentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.type").value("product-not-found"))
+                .andExpect(jsonPath("$.title").value("Product Not Found"));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should create a new product successfully")
+    void testCreatingProduct() {
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(createResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        Assertions.assertNotNull(createdProduct.getUuid(), "UUID should not be null");
+
+        stubFor(WireMock.get("/recommendation-service/v1/recommendations")
+                .willReturn(aResponse().withStatus(OK.value())
+                        .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
+                        .withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
+
+        mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(CRATE_PRODUCT_DTO.getName()))
+                .andExpect(jsonPath("$.price").value(CRATE_PRODUCT_DTO.getPrice()))
+                .andExpect(jsonPath("$.description").value(CRATE_PRODUCT_DTO.getDescription()));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should not create a new product with same name")
+    void testAddProductWithSameName() {
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andExpect(result -> {
+                    System.out.println(result.getResponse().getContentAsString());
+                });
+
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("product-already-exists"))
+                .andExpect(jsonPath("$.title").value("Product Already Exists"));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should not create a new product with invalid name")
+    void testAddProductWithInvalidName() {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(BAD_REQUEST, VALIDATION_FAILED_MESSAGE);
+        problemDetail.setType(URI.create("validation-error"));
+        problemDetail.setTitle("Validation Failed");
+
+        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(INVALID_PRODUCT_DTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.status").value(BAD_REQUEST.value()))
+                .andExpect(jsonPath("$.detail").value(VALIDATION_FAILED_MESSAGE));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should update a product successfully")
+    void testUpdateProductWithCategories() {
+        String OLD_PRODUCT_NAME = "Old Star Product Name";
+        String NEW_PRODUCT_NAME = "New Star Product Name";
+        Double NEW_PRODUCT_PRICE = 10.0;
+        String NEW_PRODUCT_DESCRIPTION = "New Product Description";
+
+        ProductCategoryDto category1 = createCategory("Category 1");
+        ProductCategoryDto category2 = createCategory("Category 2");
+        ProductCategoryDto category3 = createCategory("Category 3");
+
+        SaveProductDto product = buildProductWithCategories(OLD_PRODUCT_NAME, List.of(category1, category2));
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(product)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value(product.getName()))
+                .andExpect(jsonPath("$.price").value(product.getPrice()))
+                .andExpect(jsonPath("$.description").value(product.getDescription()))
+                .andExpect(jsonPath("$.categories", hasSize(2)))
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(createResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        SaveProductDto updatedProduct = SaveProductDto.builder()
+                .name(NEW_PRODUCT_NAME)
+                .price(NEW_PRODUCT_PRICE)
+                .categories(List.of(category3))
+                .description(NEW_PRODUCT_DESCRIPTION)
+                .build();
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/v1/products/{productId}", createdProduct.getUuid())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updatedProduct)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(updatedProduct.getName()))
+                .andExpect(jsonPath("$.price").value(updatedProduct.getPrice()))
+                .andExpect(jsonPath("$.description").value(updatedProduct.getDescription()))
+                .andExpect(jsonPath("$.categories", hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].name").value(category3.getName()));
+    }
+
+    @Test
+    @SneakyThrows
+    void testDeleteNonExistentProduct() {
+        mockMvc.perform(delete("/api/v1/products/{id}", java.util.UUID.randomUUID()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should delete existing product")
+    void testDeleteExistingProduct() {
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(
+                createResult.getResponse().getContentAsString(),
+                ProductBasicDto.class
+        );
+
+        mockMvc.perform(delete("/api/v1/products/{id}", createdProduct.getUuid()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should create product with categories and retrieve with categories")
+    void testCreateProductCategoryAndRetrieve() {
+        ProductCategoryDto productCategory = createCategory(CREATE_PRODUCT_CATEGORY_DTO.getName());
+
+        SaveProductDto product = buildProductWithCategories("Galaxy A48", List.of(productCategory));
+
+        MvcResult createProductResult = mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(product)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.categories", hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].name").value(CREATE_PRODUCT_CATEGORY_DTO.getName()))
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(createProductResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        stubFor(WireMock.get("/recommendation-service/v1/recommendations").willReturn(aResponse().withStatus(OK.value()).withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
+
+        mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories", hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].name").value(CREATE_PRODUCT_CATEGORY_DTO.getName()));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should fail when creating duplicate category")
+    void testCreateDuplicateCategory() {
+        String categoryName = "Duplicate Category";
+        createCategory(categoryName);
+
+        SaveProductCategoryDto duplicateCategory = SaveProductCategoryDto.builder()
+                .name(categoryName)
+                .build();
+
+        mockMvc.perform(post("/api/v1/products/productCategory")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateCategory)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("product-category-already-exists"))
+                .andExpect(jsonPath("$.title").value("Product Category Already Exists"));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Should update a product category successfully")
+    void testUpdateProductCategory() {
+        ProductCategoryDto category = createCategory("Category 1");
+
+        SaveProductCategoryDto updatedCategoryDto = SaveProductCategoryDto.builder()
+                .name("Updated Category")
+                .build();
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/v1/products/productCategory/{categoryId}", category.getUuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatedCategoryDto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(updatedCategoryDto.getName()));
+    }
+
+    @SneakyThrows
+    private ProductCategoryDto createCategory(String name) {
+        SaveProductCategoryDto dto = SaveProductCategoryDto.builder()
+                .name(name)
+                .build();
+
+        MvcResult result = mockMvc.perform(post("/api/v1/products/productCategory")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        return objectMapper.readValue(
+                result.getResponse().getContentAsString(),
+                ProductCategoryDto.class
+        );
+    }
+}

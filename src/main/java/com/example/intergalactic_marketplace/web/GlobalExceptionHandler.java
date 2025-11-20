@@ -1,6 +1,8 @@
 package com.example.intergalactic_marketplace.web;
 
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.GreetingNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.ParamsViolationDetails;
@@ -26,9 +28,11 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    public static final String VALIDATION_FAILED_MESSAGE = "Validation failed. Check 'errors' field for details.";
+
     @ExceptionHandler(GreetingNotFoundException.class)
     ProblemDetail handleStoreConfigurationNotFoundException(GreetingNotFoundException ex) {
-        log.info("Greeting Not Found exception raised");
+        log.warn("Greeting Not Found exception raised");
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
         problemDetail.setType(URI.create("greeting-not-found"));
@@ -40,7 +44,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException.class)
     ProblemDetail handleNotFoundException(ProductNotFoundException ex) {
-        log.info("Product Not Found exception raised");
+        log.warn("Product Not Found exception raised");
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
         problemDetail.setType(URI.create("product-not-found"));
@@ -51,11 +55,33 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ProductAlreadyExistsException.class)
     ProblemDetail handleProductAlreadyExistsException(ProductAlreadyExistsException ex) {
-        log.info("Product Already Exists exception raised");
+        log.warn("Product Already Exists exception raised");
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(CONFLICT, ex.getMessage());
         problemDetail.setType(URI.create("product-already-exists"));
         problemDetail.setTitle("Product Already Exists");
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(ProductCategoryAlreadyExistsException.class)
+    ProblemDetail handleProductCategoryAlreadyExistsException(ProductCategoryAlreadyExistsException ex) {
+        log.warn("Product Category Already Exists exception raised");
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(CONFLICT, ex.getMessage());
+        problemDetail.setType(URI.create("product-category-already-exists"));
+        problemDetail.setTitle("Product Category Already Exists");
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(ProductCategoryNotFoundException.class)
+    ProblemDetail handleProductCategoryNotFoundException(ProductCategoryAlreadyExistsException ex) {
+        log.warn("Product Category Not Found exception raised");
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
+        problemDetail.setType(URI.create("product-category-not-found"));
+        problemDetail.setTitle("Product Category Not Found");
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }
@@ -66,14 +92,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ParamsViolationDetails> validationResponse = fieldErrors.stream().map(err ->
                 ParamsViolationDetails.builder().reason(err.getDefaultMessage()).fieldName(err.getField()).build()).toList();
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, "Validation failed. Check 'errors' field for details.");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, VALIDATION_FAILED_MESSAGE);
         problemDetail.setTitle("Validation Failed");
         problemDetail.setType(URI.create("validation-error"));
         problemDetail.setProperty("timestamp", Instant.now());
         problemDetail.setProperty("errors", validationResponse);
         problemDetail.setInstance(URI.create(request.getContextPath()));
 
-        log.info("Validation error: {}", validationResponse);
+        log.warn("Validation error: {}", validationResponse);
 
         return ResponseEntity.status(statusCode).body(problemDetail);
     }

@@ -2,6 +2,21 @@ spring:
   application:
     name: intergalactic-marketplace
 
+application:
+    restclient:
+      response-timeout: 2000
+    recommendation-service:
+      base-path: http://localhost:8089
+      url: ${application.recommendation-service.base-path}/recommendation-service/v1/recommendations
+    api-docs:
+      enabled: true
+    swagger-ui:
+      urls:
+        - name: Greeting API
+          url: /api-specs/greeting-api-spec.yaml
+        - name: Product API
+          url: /api-specs/product-api-spec.yaml
+
 greeting:
   greetings:
     bob:
