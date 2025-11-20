@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: "Intergalactic Marketplace API"
+  description: "An Intergalactic Marketplace API for managing and selling products."
+  version: "1.0.0"
+
+servers:
+  - url: "/api/v1"
+    description: "Version 1 of the API"
+
+tags:
+  - name: "Product"
+
+paths:
+  /products:
+    get:
+      tags:
+        - "Product"
+      summary: "Get all products"
+      description: "Returns a list of all products in the system."
+      operationId: "getAllProducts"
+      responses:
+        '200':
+          description: "A list of products."
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Product"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags:
+        - "Product"
+      summary: "Create a new product"
+      description: "Creates a new product and adds it to the system."
+      operationId: "createProduct"
+      requestBody:
+        description: "The product object to be created."
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        '201':
+          description: "Product created successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '400':
+          description: "Invalid input provided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        '409':
+          description: "Conflict. Product with the same name or id already exists."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /products/{productId}:
+    parameters:
+      - name: "productId"
+        in: "path"
+        description: "The ID of the product"
+        required: true
+        schema:
+          type: "string"
+          format: "uuid"
+          example: "123e4567-e89b-12d3-a456-426655440000"
+
+    get:
+      tags:
+        - "Product"
+      summary: "Get a product by ID"
+      description: "Returns a single product based on its unique ID."
+      operationId: "getProductById"
+      responses:
+        '200':
+          description: "The requested product."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '404':
+          description: "Product not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      tags:
+        - "Product"
+      summary: "Update an existing product"
+      description: "Updates all fields of an existing product by its ID."
+      operationId: "updateProduct"
+      requestBody:
+        description: "The updated product data."
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        '200':
+          description: "Product updated successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        '400':
+          description: "Invalid input provided"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        '404':
+          description: "Product not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags:
+        - "Product"
+      summary: "Delete a product by ID"
+      description: "Deletes a product from the system by its ID."
+      operationId: "deleteProduct"
+      responses:
+        '204':
+          description: "No content returned."
+        '500':
+          description: "Internal server error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    Product:
+      type: "object"
+      description: "Represents a product in the system."
+      properties:
+        uuid:
+          type: "string"
+          format: "uuid"
+          description: "The unique identifier for the product."
+          readOnly: true
+          example: "123e4567-e89b-12d3-a456-426655440000"
+        name:
+          type: "string"
+          description: "The name of the product."
+          example: "Super Laptop"
+        description:
+          type: "string"
+          description: "A detailed description of the product."
+          example: "A very fast and powerful laptop."
+        price:
+          type: "number"
+          format: "double"
+          description: "The price of the product."
+          example: 1499.99
+      required:
+        - "uuid"
+        - "name"
+        - "price"
+
+    ProductInput:
+      type: "object"
+      description: "The data required to create or update a product."
+      properties:
+        name:
+          type: "string"
+          description: "The name of the product."
+          example: "Super Laptop"
+        description:
+          type: "string"
+          description: "A detailed description of the product."
+          example: "A very fast and powerful laptop."
+        price:
+          type: "number"
+          format: "double"
+          description: "The price of the product."
+          example: 1499.99
+      required:
+        - "name"
+        - "price"
+
+    ErrorResponse:
+      type: "object"
+      description: "A standard error response body."
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+          description: "The time the error occurred."
+        type:
+          type: "string"
+          description: "A URI reference that identifies the problem type."
+          example: "product-not-found"
+        title:
+          type: "string"
+          description: "A short, human-readable summary of the problem."
+          example: "Product Not Found"
+        status:
+          type: "integer"
+          description: "The HTTP status code."
+          example: 404
+        detail:
+          type: "string"
+          description: "A detailed error message."
+          example: "Product not found with id: 1"
+        path:
+          type: "string"
+          description: "The path of the request that caused the error."
+          example: "/api/v1/products/1"
+      required:
+        - "timestamp"
+        - "status"
+        - "error"
+        - "message"
+
+    ValidationErrorResponse:
+      type: object
+      description: A standard problem detail response for a 400 validation error.
+      properties:
+        type:
+          type: string
+          description: A URI reference that identifies the problem type.
+          example: "validation-error"
+        title:
+          type: string
+          description: A short, human-readable summary of the problem.
+          example: "Validation Failed"
+        status:
+          type: integer
+          description: The HTTP status code.
+          example: 400
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence.
+          example: "Validation failed. Check 'errors' field for details."
+        timestamp:
+          type: string
+          format: date-time
+          description: The exact time the error occurred.
+          example: "2025-10-29T20:28:54.928087Z"
+        errors:
+          type: array
+          description: A list of specific field-level validation errors.
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      description: Describes a single field-level validation error.
+      properties:
+        fieldName:
+          type: string
+          description: The name of the field that failed validation.
+          example: "name"
+        reason:
+          type: string
+          description: The reason why the validation failed.
+          example: "Name must include a galactic keyword (e.g., star, galaxy, comet)."
+
+    ConflictErrorResponse:
+      type: "object"
+      description: "A conflict error response body."
+      properties:
+        timestamp:
+          type: "string"
+          format: "date-time"
+          description: "The time the error occurred."
+        type:
+          type: "string"
+          description: "A URI reference that identifies the problem type."
+          example: "product-already-exists"
+        title:
+          type: "string"
+          description: "A short, human-readable summary of the problem."
+          example: "Product Already Exists"
+        status:
+          type: "integer"
+          description: "The HTTP status code."
+          example: 404
+        detail:
+          type: "string"
+          description: "A detailed error message."
+          example: "Product with name Galaxy Super Puper Laptop already exists"
+        path:
+          type: "string"
+          description: "The path of the request that caused the error."
+          example: "/api/v1/products/"
+      required:
+        - "timestamp"
+        - "title"
+        - "type"
+        - "status"
+        - "detail"
+        - "message"

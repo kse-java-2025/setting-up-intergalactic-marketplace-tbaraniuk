@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Intergalactic Marketplace Greetings API
+  description: API for retrieving greetings from the Intergalactic Marketplace.
+  version: 1.0.0
+servers:
+  - url: "/api/v1"
+    description: "Version 1 of the API"
+
+paths:
+  /api/v1/greetings:
+    get:
+      summary: Get a default greeting
+      operationId: greeting
+      tags:
+        - Greetings
+      responses:
+        '200':
+          description: A successful default greeting.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Hello and Welcome to Intergalactic Marketplace!"
+
+  /api/v1/greetings/{name}:
+    get:
+      summary: Get a personalized greeting by name
+      operationId: greetingWithName
+      tags:
+        - Greetings
+      parameters:
+        - name: name
+          in: path
+          description: The name key to look up a specific greeting.
+          required: true
+          schema:
+            type: string
+            example: "luke"
+      responses:
+        '200':
+          description: The personalized greeting message.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Hello and welcome, bob"
+        '404':
+          description: The greeting for the specified name was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      description: A standard RFC 9457 error response.
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference that identifies the problem type.
+          example: "greeting-not-found"
+        title:
+          type: string
+          description: A short, human-readable summary of the problem.
+          example: "Resource Not Found"
+        status:
+          type: integer
+          description: The HTTP status code.
+          example: 404
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence.
+          example: "Greeting with name unknown not found"
+        instance:
+          type: string
+          format: uri
+          description: A URI reference that identifies the specific resource.
+          example: "/api/v1/greetings/unknown"

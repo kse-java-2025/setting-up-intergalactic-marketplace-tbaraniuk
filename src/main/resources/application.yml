@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: intergalactic-marketplace
+
+greeting:
+  greetings:
+    bob:
+      name: bob
+      message: Hello and welcome, ${greeting.greetings.bob.name}
