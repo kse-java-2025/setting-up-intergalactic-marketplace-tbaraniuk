@@ -1,9 +1,9 @@
 package com.example.intergalactic_marketplace.web.exception;
 
 public class GreetingNotFoundException extends RuntimeException {
-    private static final String MESSAGE = "Greeting with name %s not found";
+    public static final String GREETING_NOT_FOUND_MESSAGE = "Greeting with name %s not found";
 
     public GreetingNotFoundException(String name) {
-        super(String.format(MESSAGE, name));
+        super(String.format(GREETING_NOT_FOUND_MESSAGE, name));
     }
 }

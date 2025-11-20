@@ -9,11 +9,13 @@ import lombok.Builder;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
 
+import java.util.List;
+
 @Value
 @Builder(toBuilder = true)
 @Jacksonized
-@GroupSequence({CreateProductDto.class, ExtendedValidation.class})
-public class CreateProductDto {
+@GroupSequence({SaveProductDto.class, ExtendedValidation.class})
+public class SaveProductDto {
     @NotNull(message = "The name of the product is required")
     @ValidProductGalacticName
     String name;
@@ -23,4 +25,7 @@ public class CreateProductDto {
     @NotNull(message = "The product price cannot be null")
     @Min(value = 0, message = "The price of the product must be greater than or equal to zero")
     Double price;
+
+//    @NotNull(message = "The product categories cannot be null")
+    List<ProductCategoryDto> categories;
 }
