@@ -11,11 +11,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @Configuration
-@ConfigurationProperties(prefix = "application.feature")
+@ConfigurationProperties(prefix = "application.feature.toggles")
 public class FeatureToggleProperties {
     Map<String, Boolean> toggles = new HashMap<>();
-
-    public boolean check(String featureToggle) {
-        return toggles.getOrDefault(featureToggle, false);
-    }
 }

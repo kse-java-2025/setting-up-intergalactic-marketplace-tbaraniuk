@@ -1,5 +1,6 @@
 package com.example.intergalactic_marketplace.featuretoggle.annotation;
 
+import com.example.intergalactic_marketplace.featuretoggle.FeatureFallbackBehavior;
 import com.example.intergalactic_marketplace.featuretoggle.FeatureToggles;
 
 import java.lang.annotation.ElementType;
@@ -11,4 +12,6 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface FeatureToggle {
     FeatureToggles value();
+
+    FeatureFallbackBehavior fallbackBehavior() default FeatureFallbackBehavior.RETURN_EMPTY;
 }

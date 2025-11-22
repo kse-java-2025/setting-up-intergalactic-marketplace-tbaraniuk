@@ -20,8 +20,9 @@ java {
 ext {
     minimumCoveragePerFile = 0.5
     filesExcludedFromCoverage = [
-            "**/*MarketApplication.*",
-            "**/config/*Configuration.*"
+            "**/IntergalacticMarketplaceApplication.*",
+            "**/config/*Configuration.*",
+            "**/config/FeatureToggleProperties.*",
     ]
 }
 

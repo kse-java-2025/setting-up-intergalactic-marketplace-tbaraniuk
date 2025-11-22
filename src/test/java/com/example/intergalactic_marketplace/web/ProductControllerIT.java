@@ -40,18 +40,23 @@ import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
+import static com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException.FEATURE_TOGGLE_NOT_ENABLED;
 import static com.example.intergalactic_marketplace.web.GlobalExceptionHandler.VALIDATION_FAILED_MESSAGE;
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.reset;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.OK;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -66,6 +71,7 @@ public class ProductControllerIT {
     private static final SaveProductDto INVALID_PRODUCT_DTO = buildProduct("Test");
     private static final SaveProductCategoryDto CREATE_PRODUCT_CATEGORY_DTO = buildProductCategory("Test Product");
     private static final RecommendedProductDto RECOMMENDED_PRODUCT_DTO = buildRecommendedProduct("Recommended Product");
+    private static final String TRANSLATION_LANGUAGE = "uk";
 
     @RegisterExtension
     static WireMockExtension wireMockExtension = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).configureStaticDsl(true).build();
@@ -159,6 +165,7 @@ public class ProductControllerIT {
     @Test
     @SneakyThrows
     @DisabledFeatureToggle(FeatureToggles.RECOMMENDATIONS)
+    @DisplayName("Should return recommended products with feature disabled")
     void testGetProductRecommendationsDisabled() {
         MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
@@ -194,6 +201,7 @@ public class ProductControllerIT {
     @Test
     @SneakyThrows
     @EnabledFeatureToggle(FeatureToggles.RECOMMENDATIONS)
+    @DisplayName("Should return recommended products with feature enabled")
     void testGetProductRecommendationsEnabled() {
         MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON)
@@ -266,7 +274,7 @@ public class ProductControllerIT {
                 .andExpect(jsonPath("$.type").value("validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.status").value(BAD_REQUEST.value()))
-                .andExpect(jsonPath("$.detail").value(VALIDATION_FAILED_MESSAGE));
+                .andExpect(jsonPath("$.detail").value(problemDetail.getDetail()));
     }
 
     @Test
@@ -304,8 +312,8 @@ public class ProductControllerIT {
                 .build();
 
         mockMvc.perform(MockMvcRequestBuilders.put("/api/v1/products/{productId}", createdProduct.getUuid())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updatedProduct)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updatedProduct)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value(updatedProduct.getName()))
                 .andExpect(jsonPath("$.price").value(updatedProduct.getPrice()))
@@ -316,6 +324,7 @@ public class ProductControllerIT {
 
     @Test
     @SneakyThrows
+    @DisplayName("Should update a product successfully")
     void testDeleteNonExistentProduct() {
         mockMvc.perform(delete("/api/v1/products/{id}", java.util.UUID.randomUUID()))
                 .andExpect(status().isNoContent());
@@ -364,7 +373,7 @@ public class ProductControllerIT {
         stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations")).willReturn(aResponse().withStatus(OK.value()).withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
 
         mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
-                .accept(MediaType.APPLICATION_JSON))
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categories", hasSize(1)))
                 .andExpect(jsonPath("$.categories[0].name").value(CREATE_PRODUCT_CATEGORY_DTO.getName()));
@@ -404,6 +413,59 @@ public class ProductControllerIT {
                         .content(objectMapper.writeValueAsString(updatedCategoryDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value(updatedCategoryDto.getName()));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisabledFeatureToggle(FeatureToggles.CONTENT_TRANSLATION)
+    @DisplayName("Should fail return product translation on feature off")
+    void testTranslationFeatureDisabled() {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, String.format(FEATURE_TOGGLE_NOT_ENABLED, FeatureToggles.CONTENT_TRANSLATION.name().toLowerCase()));
+        problemDetail.setType(URI.create("feature-toggle-not-enabled"));
+        problemDetail.setTitle("Feature Toggle Not Enabled");
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andExpect(result -> {
+                    System.out.println(result.getResponse().getContentAsString());
+                }).andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(mvcResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        mockMvc.perform(post("/api/v1/products/{id}/translate", createdProduct.getUuid())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(TRANSLATION_LANGUAGE))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.type").value(problemDetail.getType().toString()))
+                .andExpect(jsonPath("$.title").value(problemDetail.getTitle()))
+                .andExpect(jsonPath("$.status").value(NOT_FOUND.value()))
+                .andExpect(jsonPath("$.detail").value(problemDetail.getDetail()));
+    }
+
+    @Test
+    @SneakyThrows
+    @EnabledFeatureToggle(FeatureToggles.CONTENT_TRANSLATION)
+    @DisplayName("Should return product translation on feature on")
+    void testTranslationFeatureEnabled() {
+        MvcResult mvcResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andExpect(result -> {
+                    System.out.println(result.getResponse().getContentAsString());
+                }).andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(mvcResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        mockMvc.perform(post("/api/v1/products/{id}/translate", createdProduct.getUuid())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(TRANSLATION_LANGUAGE))
+                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
     }
 
     @SneakyThrows

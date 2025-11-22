@@ -1,8 +1,10 @@
 package com.example.intergalactic_marketplace.featuretoggle.aspect;
 
+import com.example.intergalactic_marketplace.featuretoggle.FeatureFallbackBehavior;
 import com.example.intergalactic_marketplace.featuretoggle.FeatureToggleService;
 import com.example.intergalactic_marketplace.featuretoggle.FeatureToggles;
 import com.example.intergalactic_marketplace.featuretoggle.annotation.FeatureToggle;
+import com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -31,6 +33,10 @@ public class FeatureToggleAspect {
         }
 
         log.warn("checkToggle: feature {} is disabled", toggle.getFeatureName());
+
+        if (featureToggle.fallbackBehavior() == FeatureFallbackBehavior.THROW_EXCEPTION) {
+            throw new FeatureToggleNotEnabledException(toggle.getFeatureName());
+        }
 
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Class<?> returnType = signature.getReturnType();
