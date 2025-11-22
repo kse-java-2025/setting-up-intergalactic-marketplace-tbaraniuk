@@ -1,9 +1,10 @@
 package com.example.intergalactic_marketplace.service.impl;
 
 import com.example.intergalactic_marketplace.domain.recommendation.RecommendedProducts;
-import com.example.intergalactic_marketplace.dto.recommendation.RecommendationClientRequestDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendationClientResponseDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.featuretoggle.FeatureToggles;
+import com.example.intergalactic_marketplace.featuretoggle.annotation.FeatureToggle;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.RecommendedProductsRetrievalException;
 import com.example.intergalactic_marketplace.service.mapper.RecommendationServiceMapper;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,15 +40,18 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     @Override
+    @FeatureToggle(FeatureToggles.RECOMMENDATIONS)
     public RecommendedProductsDto getRecommendedProducts(UUID productId) {
         log.info("getRecommendedProducts: productId={}", productId);
-        RecommendationClientRequestDto recommendationClientRequestDto = recommendationServiceMapper.toRecommendationClientRequestDto(productId, DEFAULT_NUMBER_OF_RECOMMENDATIONS);
 
         try {
-            RecommendationClientResponseDto recommendationClientResponseDto = recommendationRestClient.post()
-                    .uri(recommendationServiceUrl)
-                    .body(recommendationClientRequestDto)
-                    .contentType(MediaType.APPLICATION_JSON)
+            RecommendationClientResponseDto recommendationClientResponseDto = recommendationRestClient.get()
+                    .uri(uriBuilder -> UriComponentsBuilder.fromUriString(recommendationServiceUrl)
+                            .queryParam("productId", productId)
+                            .queryParam("limit", DEFAULT_NUMBER_OF_RECOMMENDATIONS)
+                            .build()
+                            .toUri())
+                    .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         log.error("Recommendation Server failed to fetch recommendations for productId={}. Response Code={}", productId, response.getStatusCode());

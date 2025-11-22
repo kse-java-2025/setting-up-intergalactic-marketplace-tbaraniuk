@@ -2,7 +2,10 @@ package com.example.intergalactic_marketplace.service.impl;
 
 import com.example.intergalactic_marketplace.domain.product.Product;
 import com.example.intergalactic_marketplace.domain.product.ProductCategory;
-import com.example.intergalactic_marketplace.dto.product.*;
+import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
+import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
@@ -120,7 +123,7 @@ public class ProductServiceImpl implements ProductService {
             return productMapper.toProductCategoryDto(updatedProductCategory);
         }
 
-        return null;
+        throw new ProductCategoryNotFoundException(productCategoryDto.getName());
     }
 
     @Override

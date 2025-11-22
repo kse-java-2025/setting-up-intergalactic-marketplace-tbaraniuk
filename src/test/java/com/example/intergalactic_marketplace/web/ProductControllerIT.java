@@ -4,13 +4,24 @@ import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendationClientResponseDto;
+import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
+import com.example.intergalactic_marketplace.featuretoggle.FeatureToggleExtension;
+import com.example.intergalactic_marketplace.featuretoggle.FeatureToggles;
+import com.example.intergalactic_marketplace.featuretoggle.annotation.DisabledFeatureToggle;
+import com.example.intergalactic_marketplace.featuretoggle.annotation.EnabledFeatureToggle;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -49,13 +60,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("ProductController Integration Tests")
 @Tag("product-service")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@ExtendWith(FeatureToggleExtension.class)
 public class ProductControllerIT {
     private static final SaveProductDto CRATE_PRODUCT_DTO = buildProduct("Cosmic Product");
     private static final SaveProductDto INVALID_PRODUCT_DTO = buildProduct("Test");
     private static final SaveProductCategoryDto CREATE_PRODUCT_CATEGORY_DTO = buildProductCategory("Test Product");
+    private static final RecommendedProductDto RECOMMENDED_PRODUCT_DTO = buildRecommendedProduct("Recommended Product");
 
     @RegisterExtension
-    static WireMockExtension wireMockExtension = WireMockExtension.newInstance().options(wireMockConfig().dynamicHttpsPort()).configureStaticDsl(true).build();
+    static WireMockExtension wireMockExtension = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).configureStaticDsl(true).build();
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -71,7 +84,9 @@ public class ProductControllerIT {
 
     @DynamicPropertySource
     static void setupTestContainerProperties(DynamicPropertyRegistry registry) {
-        registry.add("application.recommendation-service.base-url", wireMockExtension::baseUrl);
+        registry.add("application.recommendation-service.base-path", wireMockExtension::baseUrl);
+        registry.add("application.recommendation-service.url",
+                () -> wireMockExtension.baseUrl() + "/recommendation-service/v1/recommendations");
         WireMock.configureFor(wireMockExtension.getPort());
     }
 
@@ -86,6 +101,13 @@ public class ProductControllerIT {
     private static SaveProductCategoryDto buildProductCategory(String productCategoryName) {
         return SaveProductCategoryDto.builder()
                 .name(productCategoryName)
+                .build();
+    }
+
+    private static RecommendedProductDto buildRecommendedProduct(String productName) {
+        return RecommendedProductDto.builder()
+                .name(productName)
+                .price(100.0)
                 .build();
     }
 
@@ -121,7 +143,7 @@ public class ProductControllerIT {
 
         Assertions.assertNotNull(createdProduct.getUuid(), "UUID should not be null");
 
-        stubFor(WireMock.get("/recommendation-service/v1/recommendations")
+        stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
                 .willReturn(aResponse().withStatus(OK.value())
                         .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
                         .withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
@@ -132,6 +154,78 @@ public class ProductControllerIT {
                 .andExpect(jsonPath("$.name").value(CRATE_PRODUCT_DTO.getName()))
                 .andExpect(jsonPath("$.price").value(CRATE_PRODUCT_DTO.getPrice()))
                 .andExpect(jsonPath("$.description").value(CRATE_PRODUCT_DTO.getDescription()));
+    }
+
+    @Test
+    @SneakyThrows
+    @DisabledFeatureToggle(FeatureToggles.RECOMMENDATIONS)
+    void testGetProductRecommendationsDisabled() {
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(createResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        Assertions.assertNotNull(createdProduct.getUuid(), "UUID should not be null");
+
+        RecommendationClientResponseDto mockRecommendationResponseDto = RecommendationClientResponseDto.builder()
+                .productId(createdProduct.getUuid())
+                .recommendedProducts(List.of(RECOMMENDED_PRODUCT_DTO))
+                .build();
+
+        stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
+                .withQueryParam("productId", equalTo(createdProduct.getUuid().toString()))
+                .willReturn(aResponse().withStatus(OK.value())
+                        .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
+                        .withBody(objectMapper.writeValueAsString(mockRecommendationResponseDto))));
+
+        mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(CRATE_PRODUCT_DTO.getName()))
+                .andExpect(jsonPath("$.price").value(CRATE_PRODUCT_DTO.getPrice()))
+                .andExpect(jsonPath("$.description").value(CRATE_PRODUCT_DTO.getDescription()))
+                .andExpect(jsonPath("$.recommendedProducts").isEmpty());
+    }
+
+    @Test
+    @SneakyThrows
+    @EnabledFeatureToggle(FeatureToggles.RECOMMENDATIONS)
+    void testGetProductRecommendationsEnabled() {
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        ProductBasicDto createdProduct = objectMapper.readValue(createResult.getResponse().getContentAsString(), ProductBasicDto.class);
+
+        Assertions.assertNotNull(createdProduct.getUuid(), "UUID should not be null");
+
+        RecommendationClientResponseDto mockRecommendationResponseDto = RecommendationClientResponseDto.builder()
+                .productId(createdProduct.getUuid())
+                .recommendedProducts(List.of(RECOMMENDED_PRODUCT_DTO))
+                .build();
+
+        stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
+                .withQueryParam("productId", equalTo(createdProduct.getUuid().toString()))
+                .willReturn(aResponse().withStatus(OK.value())
+                        .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
+                        .withBody(objectMapper.writeValueAsString(mockRecommendationResponseDto))));
+
+        mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value(CRATE_PRODUCT_DTO.getName()))
+                .andExpect(jsonPath("$.price").value(CRATE_PRODUCT_DTO.getPrice()))
+                .andExpect(jsonPath("$.description").value(CRATE_PRODUCT_DTO.getDescription()))
+                .andExpect(jsonPath("$.recommendedProducts").isNotEmpty())
+                .andExpect(jsonPath("$.recommendedProducts[0].name").value(RECOMMENDED_PRODUCT_DTO.getName()))
+                .andExpect(jsonPath("$.recommendedProducts[0].price").value(RECOMMENDED_PRODUCT_DTO.getPrice()));
     }
 
     @Test
@@ -267,7 +361,7 @@ public class ProductControllerIT {
 
         ProductBasicDto createdProduct = objectMapper.readValue(createProductResult.getResponse().getContentAsString(), ProductBasicDto.class);
 
-        stubFor(WireMock.get("/recommendation-service/v1/recommendations").willReturn(aResponse().withStatus(OK.value()).withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
+        stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations")).willReturn(aResponse().withStatus(OK.value()).withBody(objectMapper.writeValueAsString(createdProduct.getUuid()))));
 
         mockMvc.perform(get("/api/v1/products/{id}", createdProduct.getUuid())
                 .accept(MediaType.APPLICATION_JSON))
