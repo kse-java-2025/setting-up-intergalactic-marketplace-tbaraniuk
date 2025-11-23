@@ -18,7 +18,8 @@ application:
           url: /api-specs/product-api-spec.yaml
     feature:
       toggles:
-          recommendations: false
+          recommendations: true
+          content_translation: true
 
 
 greeting:
