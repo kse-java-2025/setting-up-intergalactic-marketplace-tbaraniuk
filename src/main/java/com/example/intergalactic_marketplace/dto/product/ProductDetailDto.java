@@ -13,5 +13,7 @@ import java.util.List;
 @Jacksonized
 @EqualsAndHashCode(callSuper = true)
 public class ProductDetailDto extends ProductBasicDto {
+    String description;
+
     List<RecommendedProduct> recommendedProducts;
 }

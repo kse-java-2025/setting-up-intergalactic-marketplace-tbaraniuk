@@ -1,6 +1,8 @@
 package com.example.intergalactic_marketplace.dto.product;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.jackson.Jacksonized;
 
@@ -14,8 +16,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ProductBasicDto {
     UUID uuid;
+    String sku;
     String name;
-    String description;
     Double price;
     Set<ProductCategoryDto> categories;
 }

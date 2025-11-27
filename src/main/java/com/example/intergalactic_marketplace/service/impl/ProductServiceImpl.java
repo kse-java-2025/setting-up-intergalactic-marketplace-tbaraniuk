@@ -1,12 +1,15 @@
 package com.example.intergalactic_marketplace.service.impl;
 
-import com.example.intergalactic_marketplace.domain.product.Product;
-import com.example.intergalactic_marketplace.domain.product.ProductCategory;
 import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.entity.ProductCategoryEntity;
+import com.example.intergalactic_marketplace.entity.ProductEntity;
+import com.example.intergalactic_marketplace.repository.ProductCategoryRepository;
+import com.example.intergalactic_marketplace.repository.ProductRepository;
+import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
@@ -17,13 +20,14 @@ import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -32,220 +36,171 @@ public class ProductServiceImpl implements ProductService {
     private final RecommendationService recommendationService;
     private final ProductMapper productMapper;
 
-    private final CopyOnWriteArrayList<Product> products = buildProductsMock();
-    private final List<ProductCategory> categories = buildProductCategoriesMock();
+    private final ProductRepository productRepository;
+    private final ProductCategoryRepository productCategoryRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductBasicDto> getAllProducts(Pageable pageable) {
-        int pageSize = pageable.getPageSize();
-        int currentPage = pageable.getPageNumber();
-        int start = currentPage * pageSize;
+        Page<ProductBasicProjection> productPage = productRepository.findAllBy(pageable);
 
-        List<ProductBasicDto> dtos;
-        int totalProducts = products.size();
-
-        if (totalProducts < start) {
-            dtos = List.of();
-        } else {
-            int end = Math.min(start + pageSize, products.size());
-            List<Product> productPageList = products.subList(start, end);
-
-            dtos = productPageList.stream()
-                    .map(product -> {
-                        Set<ProductCategoryDto> categoryDtos = getCategoriesByIds(product.getCategories());
-                        return productMapper.toProductDto(product, categoryDtos);
-                    })
-                    .collect(Collectors.toList());
-        }
-
-        Page<ProductBasicDto> productPage = new PageImpl<>(dtos, pageable, totalProducts);
+        Page<ProductBasicDto> resultPage = productPage.map(productMapper::toProductBasicDto);
 
         log.info("getAllProducts. Returning page {} of {} with {} products. Total products: {}",
                 productPage.getNumber(), productPage.getTotalPages(),
                 productPage.getNumberOfElements(), productPage.getTotalElements());
 
-        return productPage;
+        return resultPage;
     }
 
     @Override
-    public ProductBasicDto createProduct(SaveProductDto productDto) {
-        Optional<Product> existingProduct = products.stream()
-                .filter(item -> item.getName().equals(productDto.getName()))
-                .findFirst();
-
-        if (existingProduct.isPresent()) {
-            log.error("createProduct: product with name {} already exists", productDto.getName());
-
-            throw new ProductAlreadyExistsException(existingProduct.get().getName());
+    @Transactional(readOnly = true)
+    public Page<ProductBasicDto> searchProducts(String name, Pageable pageable) {
+        if(name == null || name.isBlank()){
+            return getAllProducts(pageable);
         }
 
-        Set<UUID> categoryIds = resolveCategoriesIds(productDto.getCategories());
+        Page<ProductBasicProjection> productPage = productRepository.searchByName(name, pageable);
 
-        UUID productId = UUID.randomUUID();
-        Product savedProduct = productMapper.toProduct(productId, productDto, categoryIds);
-        products.add(savedProduct);
+        Page<ProductBasicDto> resultPage = productPage.map(productMapper::toProductBasicDto);
+
+        log.info("searchProducts. Returning page {} of {} with {} products. Total products: {}",
+                productPage.getNumber(), productPage.getTotalPages(),
+                productPage.getNumberOfElements(), productPage.getTotalElements());
+
+        return resultPage;
+    }
+
+    @Override
+    @Transactional
+    public ProductBasicDto createProduct(SaveProductDto productDto) {
+        if (productRepository.existsByName(productDto.getName())) {
+            log.error("createProduct: product with name {} already exists", productDto.getName());
+
+            throw new ProductAlreadyExistsException(productDto.getName());
+        }
+
+        List<UUID> categoryIds = productDto.getCategoryIds();
+
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            categoryIds = List.of();
+        }
+
+        List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
+
+        if(categoryEntities.size() != categoryIds.size()){
+            log.error("createProduct: one or more categories not found");
+
+            throw new IllegalArgumentException("One or more categories not found");
+        }
+
+        ProductEntity productToSave = productMapper.toProductEntity(productDto);
+
+        productToSave.setCategories(new HashSet<>(categoryEntities));
+
+        ProductEntity savedProduct = productRepository.save(productToSave);
 
         log.info("createProduct: product={}", savedProduct);
 
-        return productMapper.toProductDto(savedProduct, getCategoriesByIds(categoryIds));
+        return productMapper.toProductDto(savedProduct);
     }
 
     @Override
+    @Transactional
     public ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto) {
-        UUID productCategoryId = UUID.randomUUID();
-        ProductCategory savedProductCategory = productMapper.toProductCategory(productCategoryId, productCategoryDto);
+        ProductCategoryEntity productCategoryToSave = productMapper.toProductCategoryEntity(productCategoryDto);
 
-        boolean exists = categories.stream()
-                .anyMatch(cat -> cat.getName().equalsIgnoreCase(productCategoryDto.getName()));
-
-        if (exists) {
+        if (productCategoryRepository.existsByName(productCategoryDto.getName())) {
             throw new ProductCategoryAlreadyExistsException(productCategoryDto.getName());
         }
 
-        categories.add(savedProductCategory);
+        ProductCategoryEntity savedProductCategory = productCategoryRepository.save(productCategoryToSave);
 
         return productMapper.toProductCategoryDto(savedProductCategory);
     }
 
     @Override
+    @Transactional
     public ProductCategoryDto updateProductCategory(UUID productCategoryId, SaveProductCategoryDto productCategoryDto) {
-        Optional<ProductCategory> existingProductCategory = categories.stream()
-                .filter(item -> item.getUuid().equals(productCategoryId))
-                .findFirst();
+        Optional<ProductCategoryEntity> existingProductCategory = productCategoryRepository
+                .findById(productCategoryId);
 
-        if (existingProductCategory.isPresent()) {
-            ProductCategory updatedProductCategory = productMapper.toProductCategory(
-                    existingProductCategory.get().getUuid(), productCategoryDto);
+        if(existingProductCategory.isEmpty()){
+            log.warn("updateProductCategory: product category with id {} not found", productCategoryId);
 
-            categories.remove(existingProductCategory.get());
-            categories.add(updatedProductCategory);
-
-            return productMapper.toProductCategoryDto(updatedProductCategory);
+            throw new ProductCategoryNotFoundException(productCategoryId);
         }
 
-        throw new ProductCategoryNotFoundException(productCategoryDto.getName());
+       productMapper.updateProductEntityFromDto(productCategoryDto, existingProductCategory.get());
+
+        ProductCategoryEntity updatedProductCategory = productCategoryRepository.save(existingProductCategory.get());
+
+        return productMapper.toProductCategoryDto(updatedProductCategory);
+
     }
 
     @Override
-    public ProductBasicDto getProduct(java.util.UUID productId) {
-        Optional<Product> existingProduct = Optional.ofNullable(products.stream()
-                .filter(item -> item.getUuid().equals(productId))
-                .findFirst()
-                .orElseThrow(() -> {
-                    log.error("getProduct: product with id {} not found", productId);
-                    return new ProductNotFoundException(productId);
-                }));
+    @Transactional(readOnly = true)
+    public ProductBasicDto getProduct(UUID productId) {
+        Optional<ProductEntity> product = productRepository.findByUuid(productId);
+
+        if(product.isEmpty()){
+            throw new ProductNotFoundException(productId);
+        }
 
         log.info("getProduct: productId={}", productId);
 
         RecommendedProductsDto recommendedProductsDto = recommendationService.getRecommendedProducts(productId);
 
-        Set<ProductCategoryDto> categoryDtos = getCategoriesByIds(existingProduct.get().getCategories());
-
-        return productMapper.toProductDetailDto(existingProduct.get(), categoryDtos, recommendedProductsDto);
+        return productMapper.toProductDetailDto(product.get(), recommendedProductsDto);
     }
 
     @Override
+    @Transactional
     public ProductBasicDto updateProduct(UUID productId, SaveProductDto productDto) {
-        Optional<Product> existingProduct = Optional.ofNullable(products.stream()
-                .filter(item -> item.getUuid().equals(productId))
-                .findFirst()
-                .orElseThrow(() -> {
-                    log.error("updateProduct: product with id {} not found", productId);
-                    return new ProductNotFoundException(productId);
-                }));
+        Optional<ProductEntity> existingProduct = productRepository.findByUuid(productId);
+
+        if(existingProduct.isEmpty()){
+            log.error("updateProduct: product with id {} not found", productId);
+
+            throw new ProductNotFoundException(productId);
+        }
+
+        productMapper.updateProductEntityFromDto(productDto, existingProduct.get());
+
+        List<UUID> newCategoryIds = productDto.getCategoryIds();
+
+        if (newCategoryIds != null) {
+            List<ProductCategoryEntity> newCategories = productCategoryRepository.findAllById(newCategoryIds);
+
+            if (newCategories.size() != newCategoryIds.size()) {
+                throw new IllegalArgumentException("One or more categories not found");
+            }
+
+            if (existingProduct.get().getCategories() == null) {
+                existingProduct.get().setCategories(new HashSet<>());
+            }
+
+            existingProduct.get().getCategories().clear();
+            existingProduct.get().getCategories().addAll(newCategories);
+        }
 
         log.info("updateProduct: productId={}", productId);
 
-        Set<UUID> categoryIds = resolveCategoriesIds(productDto.getCategories());
+        ProductEntity savedProduct = productRepository.save(existingProduct.get());
 
-        Product updatedProduct = productMapper.toProduct(productId, productDto, categoryIds);
-        products.remove(existingProduct.get());
-        products.add(updatedProduct);
-
-        return productMapper.toProductDto(updatedProduct, getCategoriesByIds(categoryIds));
+        return productMapper.toProductDto(savedProduct);
     }
 
     @Override
+    @Transactional
     public void deleteProduct(UUID productId) {
-        Optional<Product> existingProduct = products.stream()
-                .filter(item -> item.getUuid().equals(productId))
-                .findFirst();
-
         log.info("deleteProduct: productId={}", productId);
 
-        if (existingProduct.isPresent()) {
-            products.remove(existingProduct.get());
+        if (productRepository.existsByUuid(productId)) {
+            productRepository.deleteByUuid(productId);
+
             log.info("deleteProduct: product removed");
         }
-    }
-
-    private Set<UUID> resolveCategoriesIds(List<ProductCategoryDto> productCategoryDtos) {
-        if (productCategoryDtos == null || productCategoryDtos.isEmpty()) {
-            return Set.of();
-        }
-
-        return productCategoryDtos.stream()
-                .map(dto -> {
-                    categories.stream()
-                            .filter(cat -> cat.getUuid().equals(dto.getUuid()))
-                            .findFirst()
-                            .orElseThrow(() -> new ProductCategoryNotFoundException(dto.getName()));
-                    return dto.getUuid();
-                })
-                .collect(Collectors.toSet());
-    }
-
-    private Set<ProductCategoryDto> getCategoriesByIds(Set<UUID> categoryIds) {
-        if (categoryIds == null || categoryIds.isEmpty()) {
-            return Set.of();
-        }
-
-        return categoryIds.stream()
-                .map(id -> categories.stream()
-                        .filter(cat -> cat.getUuid().equals(id))
-                        .findFirst()
-                        .map(productMapper::toProductCategoryDto)
-                        .orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-    }
-
-    private CopyOnWriteArrayList<ProductCategory> buildProductCategoriesMock() {
-        return new CopyOnWriteArrayList<>(
-                List.of(
-                        ProductCategory.builder()
-                                .uuid(UUID.randomUUID())
-                                .name("Laptops")
-                                .build(),
-                        ProductCategory.builder()
-                                .uuid(UUID.randomUUID())
-                                .name("Mobiles")
-                                .build()
-                )
-        );
-    }
-
-    private CopyOnWriteArrayList<Product> buildProductsMock() {
-        return new CopyOnWriteArrayList<>(
-                List.of(
-                        Product.builder()
-                                .uuid(UUID.randomUUID())
-                                .name("Super Star Laptop")
-                                .description("An awesome super star laptop")
-                                .price(100.0)
-                                .build(),
-                        Product.builder()
-                                .uuid(UUID.randomUUID())
-                                .name("Galaxy Note 10")
-                                .price(50.5)
-                                .build(),
-                        Product.builder()
-                                .uuid(UUID.randomUUID())
-                                .name("Comet Mobile")
-                                .price(60.5)
-                                .build()
-                )
-        );
     }
 }

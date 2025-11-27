@@ -9,6 +9,8 @@ import java.util.UUID;
 public interface ProductService {
     Page<ProductBasicDto> getAllProducts(Pageable pageable);
 
+    Page<ProductBasicDto> searchProducts(String name, Pageable pageable);
+
     ProductBasicDto createProduct(SaveProductDto productDto);
 
     ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto);

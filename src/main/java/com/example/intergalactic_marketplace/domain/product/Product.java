@@ -10,6 +10,7 @@ import java.util.UUID;
 @Builder(toBuilder = true)
 public class Product {
     UUID uuid;
+    String sku;
     String name;
     String description;
     Double price;

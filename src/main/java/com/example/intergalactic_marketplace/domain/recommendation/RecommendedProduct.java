@@ -12,6 +12,7 @@ import java.util.UUID;
 public class RecommendedProduct {
     UUID uuid;
     String name;
+    String sku;
     Double price;
     Set<ProductCategory> categories;
 }

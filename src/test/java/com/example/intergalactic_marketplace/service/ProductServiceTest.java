@@ -7,6 +7,8 @@ import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.repository.ProductCategoryRepository;
+import com.example.intergalactic_marketplace.repository.ProductRepository;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
@@ -44,6 +46,12 @@ public class ProductServiceTest {
     private static final String PRODUCT_CATEGORY_NAME = "Electronics";
 
     @MockitoBean
+    private ProductRepository productRepository;
+
+    @MockitoBean
+    private ProductCategoryRepository productCategoryRepository;
+
+    @MockitoBean
     private RecommendationService recommendationService;
 
     @Autowired
@@ -54,17 +62,17 @@ public class ProductServiceTest {
 
     private static Stream<SaveProductDto> provideProducts() {
         return Stream.of(
-                buildProduct("Galaxy Super Test"),
-                buildProduct("Super Duper Star")
+                buildProduct("Galaxy Super Test", "galaxy-super-test"),
+                buildProduct("Super Duper Star", "super-duper-star")
         );
     }
 
-    private static SaveProductDto buildProduct(String name) {
-        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
+    private static SaveProductDto buildProduct(String name, String sku) {
+        return SaveProductDto.builder().name(name).sku(sku).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
     }
 
-    private static SaveProductDto buildProductWithCategories(String name, List<ProductCategoryDto> categories) {
-        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).categories(categories).build();
+    private static SaveProductDto buildProductWithCategories(String name, String sku, List<UUID> categoryIds) {
+        return SaveProductDto.builder().name(name).sku(sku).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).categoryIds(categoryIds).build();
     }
 
     private static SaveProductCategoryDto buildProductCategory(String productCategoryName) {
@@ -80,8 +88,8 @@ public class ProductServiceTest {
         ProductBasicDto result = productService.createProduct(product);
 
         assertEquals(product.getName(), result.getName());
+        assertEquals(product.getSku(), result.getSku());
         assertEquals(PRODUCT_PRICE, result.getPrice());
-        assertEquals(PRODUCT_DESCRIPTION, result.getDescription());
     }
 
     @Test
@@ -92,7 +100,7 @@ public class ProductServiceTest {
         Page<ProductBasicDto> oldPage = productService.getAllProducts(pageable);
         assertNotNull(oldPage);
 
-        SaveProductDto product = buildProduct("Galaxy A44");
+        SaveProductDto product = buildProduct("Galaxy A44", "galaxy-a44");
         ProductBasicDto newProduct = productService.createProduct(product);
         assertNotNull(newProduct);
 
@@ -109,7 +117,7 @@ public class ProductServiceTest {
                 inv -> buildRecommendedProductsMock()
         );
 
-        SaveProductDto product = buildProduct("Galaxy A45");
+        SaveProductDto product = buildProduct("Galaxy A45", "galaxy-a45");
         ProductBasicDto result = productService.createProduct(product);
 
         ProductBasicDto retrievedProduct = productService.getProduct(result.getUuid());
@@ -121,27 +129,27 @@ public class ProductServiceTest {
     @Test
     @DisplayName("Should update a product successfully")
     void testUpdateProduct() {
-        SaveProductDto product = buildProduct("Galaxy A46");
+        SaveProductDto product = buildProduct("Galaxy A46", "galaxy-a46");
 
         ProductBasicDto result = productService.createProduct(product);
 
         assertNotNull(result);
 
-        SaveProductDto newProduct = buildProduct("Galaxy A47");
+        SaveProductDto newProduct = buildProduct("Galaxy A47", "galaxy-a47");
 
         ProductBasicDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
 
         assertNotNull(updatedProduct);
         assertEquals(result.getUuid(), updatedProduct.getUuid());
         assertEquals(newProduct.getName(), updatedProduct.getName());
+        assertEquals(newProduct.getSku(), updatedProduct.getSku());
         assertEquals(newProduct.getPrice(), updatedProduct.getPrice());
-        assertEquals(newProduct.getDescription(), updatedProduct.getDescription());
     }
 
     @Test
     @DisplayName("Should delete a product successfully")
     void testDeleteProduct() {
-        SaveProductDto product = buildProduct("Galaxy A48");
+        SaveProductDto product = buildProduct("Galaxy A48", "galaxy-a48");
         ProductBasicDto result = productService.createProduct(product);
 
         productService.deleteProduct(result.getUuid());
@@ -159,7 +167,7 @@ public class ProductServiceTest {
         ProductCategoryDto result = productService.createProductCategory(categoryDto);
 
         assertNotNull(result);
-        assertNotNull(result.getUuid());
+        assertNotNull(result.getId());
         assertEquals(PRODUCT_CATEGORY_NAME, result.getName());
     }
 
@@ -171,7 +179,7 @@ public class ProductServiceTest {
         ProductCategoryDto category1 = productService.createProductCategory(categoryDto);
         ProductCategoryDto category2 = productService.createProductCategory(categoryDto2);
 
-        SaveProductDto productDto = buildProductWithCategories("Test", List.of(category1, category2));
+        SaveProductDto productDto = buildProductWithCategories("Test", "test", List.of(category1.getId(), category2.getId()));
 
         ProductBasicDto result = productService.createProduct(productDto);
 
@@ -183,11 +191,11 @@ public class ProductServiceTest {
     @DisplayName("Should throw ProductCategoryNotFoundException when creating a new product category with non-existent category")
     void testCreateProductWithNonExistentCategory() {
         ProductCategoryDto fakeCategory = ProductCategoryDto.builder()
-                .uuid(UUID.randomUUID())
+                .id(UUID.randomUUID())
                 .name("Non-Existent")
                 .build();
 
-        SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", List.of(fakeCategory));
+        SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", "test-product-with-non-existent-category", List.of(fakeCategory.getId()));
 
         assertThrows(ProductCategoryNotFoundException.class, () -> {
             productService.createProduct(productDto);
@@ -200,12 +208,14 @@ public class ProductServiceTest {
                         RecommendedProductDto.builder()
                                 .uuid(UUID.randomUUID())
                                 .name("Recommended Product 1")
+                                .sku("RP1")
                                 .price(100.0)
                                 .categories(Set.of())
                                 .build(),
                         RecommendedProductDto.builder()
                                 .uuid(UUID.randomUUID())
                                 .name("Recommended Product 2")
+                                .sku("RP2")
                                 .price(150.0)
                                 .categories(Set.of())
                                 .build()

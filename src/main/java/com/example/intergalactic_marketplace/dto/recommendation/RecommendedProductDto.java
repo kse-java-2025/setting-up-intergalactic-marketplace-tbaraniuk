@@ -14,6 +14,7 @@ import java.util.UUID;
 public class RecommendedProductDto {
     UUID uuid;
     String name;
+    String sku;
     Double price;
     Set<ProductCategoryDto> categories;
 }

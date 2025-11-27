@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: intergalactic-marketplace
+  jpa:
+    show-sql: true
