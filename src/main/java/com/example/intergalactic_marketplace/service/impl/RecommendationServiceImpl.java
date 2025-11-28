@@ -41,7 +41,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     @FeatureToggle(FeatureToggles.RECOMMENDATIONS)
-    public RecommendedProductsDto getRecommendedProducts(UUID productId) {
+    public RecommendedProductsDto getRecommendedProducts(String productId) {
         log.info("getRecommendedProducts: productId={}", productId);
 
         try {

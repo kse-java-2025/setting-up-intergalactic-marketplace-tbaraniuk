@@ -1,9 +1,6 @@
 package com.example.intergalactic_marketplace.web;
 
-import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
-import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.*;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.TranslationService;
 import jakarta.validation.Valid;
@@ -44,7 +41,7 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductBasicDto> createProduct(@Valid @RequestBody SaveProductDto createProductDto) {
+    public ResponseEntity<ProductDetailDto> createProduct(@Valid @RequestBody SaveProductDto createProductDto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(createProductDto));
     }
 
@@ -59,29 +56,29 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ResponseEntity<ProductBasicDto> getProduct(
-            @PathVariable UUID productId
+    public ResponseEntity<ProductDetailDto> getProduct(
+            @PathVariable String productId
     ) {
         return ResponseEntity.ok(productService.getProduct(productId));
     }
 
     @PutMapping("/{productId}")
     public ResponseEntity<ProductBasicDto> updateProduct(
-            @PathVariable UUID productId,
+            @PathVariable String productId,
             @Valid @RequestBody SaveProductDto productDto
     ) {
         return ResponseEntity.ok(productService.updateProduct(productId, productDto));
     }
 
     @DeleteMapping("/{productId}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable UUID productId) {
+    public ResponseEntity<Void> deleteProduct(@PathVariable String productId) {
         productService.deleteProduct(productId);
 
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{productId}/translate")
-    public ResponseEntity<String> translateProduct(@PathVariable UUID productId, @RequestBody String language) {
+    public ResponseEntity<String> translateProduct(@PathVariable String productId, @RequestBody String language) {
         String translatedText = translationService.translateProduct(productId.toString(), language);
 
         return ResponseEntity.ok(translatedText);

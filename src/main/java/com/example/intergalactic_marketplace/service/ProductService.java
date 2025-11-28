@@ -11,15 +11,15 @@ public interface ProductService {
 
     Page<ProductBasicDto> searchProducts(String name, Pageable pageable);
 
-    ProductBasicDto createProduct(SaveProductDto productDto);
+    ProductDetailDto createProduct(SaveProductDto productDto);
 
     ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto);
 
     ProductCategoryDto updateProductCategory(UUID productCategoryId, SaveProductCategoryDto productCategoryDto);
 
-    ProductBasicDto getProduct(UUID productId);
+    ProductDetailDto getProduct(String productId);
 
-    ProductBasicDto updateProduct(UUID productId, SaveProductDto productDto);
+    ProductDetailDto updateProduct(String productId, SaveProductDto productDto);
 
-    void deleteProduct(UUID productId);
+    void deleteProduct(String productId);
 }

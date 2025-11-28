@@ -16,42 +16,41 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "sku", source = "dto.sku")
     @Mapping(target = "name", source = "dto.name")
     @Mapping(target = "description", source = "dto.description")
     @Mapping(target = "price", source = "dto.price")
     @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     ProductEntity toProductEntity(SaveProductDto dto);
 
-    @Mapping(target = "uuid", source = "product.uuid")
-    @Mapping(target = "sku", source = "product.sku")
-    @Mapping(target = "name", source = "product.name")
-    @Mapping(target = "price", source = "product.price")
-    @Mapping(target = "categories", source = "product.categories")
-    ProductBasicDto toProductDto(ProductEntity product);
-
-    @Mapping(target = "uuid", source = "product.uuid")
     @Mapping(target = "sku", source = "product.sku")
     @Mapping(target = "name", source = "product.name")
     @Mapping(target = "price", source = "product.price")
     ProductBasicDto toProductBasicDto(ProductBasicProjection product);
 
-    @Mapping(target = "uuid", source = "product.uuid")
     @Mapping(target = "sku", source = "product.sku")
     @Mapping(target = "name", source = "product.name")
     @Mapping(target = "description", source = "product.description")
     @Mapping(target = "price", source = "product.price")
     @Mapping(target = "categories", source = "product.categories")
+    @Mapping(target = "createdAt", source = "product.createdAt")
+    @Mapping(target = "updatedAt", source = "product.updatedAt")
     @Mapping(target = "recommendedProducts", source = "recommendedProducts.recommendedProducts")
     ProductDetailDto toProductDetailDto(ProductEntity product, RecommendedProductsDto recommendedProducts);
 
+    default ProductDetailDto toProductDetailDto(ProductEntity product) {
+        return toProductDetailDto(product, null);
+    }
+
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     void updateProductEntityFromDto(SaveProductDto dto, @MappingTarget ProductEntity productEntity);
 
-    @Mapping(target = "id", source = "productCategory.id")
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "name", source = "productCategory.name")
     ProductCategoryDto toProductCategoryDto(ProductCategoryEntity productCategory);
 

@@ -8,21 +8,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-import java.util.UUID;
-
 @Repository
-public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
+public interface ProductRepository extends NaturalIdRepository<ProductEntity, String>, JpaRepository<ProductEntity, String> {
     boolean existsByName(String name);
-
-    Optional<ProductEntity> findByUuid(UUID productId);
 
     Page<ProductBasicProjection> findAllBy(Pageable pageable);
 
     @Query("SELECT p FROM ProductEntity AS p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keword, '%'))")
     Page<ProductBasicProjection> searchByName(String keyword, Pageable pageable);
-
-    boolean existsByUuid(UUID productId);
-
-    void deleteByUuid(UUID productId);
 }

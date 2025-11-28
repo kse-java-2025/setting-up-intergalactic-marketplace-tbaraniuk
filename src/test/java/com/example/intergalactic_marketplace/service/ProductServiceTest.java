@@ -1,41 +1,43 @@
 package com.example.intergalactic_marketplace.service;
 
 import com.example.intergalactic_marketplace.config.MappersTestConfiguration;
+import com.example.intergalactic_marketplace.dto.product.ProductDetailDto;
 import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.entity.ProductCategoryEntity;
+import com.example.intergalactic_marketplace.entity.ProductEntity;
 import com.example.intergalactic_marketplace.repository.ProductCategoryRepository;
 import com.example.intergalactic_marketplace.repository.ProductRepository;
+import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = ProductServiceImpl.class)
 @Import(MappersTestConfiguration.class)
@@ -58,14 +60,7 @@ public class ProductServiceTest {
     private ProductService productService;
 
     @Captor
-    private ArgumentCaptor<UUID> recommendationServiceArgumentCaptor;
-
-    private static Stream<SaveProductDto> provideProducts() {
-        return Stream.of(
-                buildProduct("Galaxy Super Test", "galaxy-super-test"),
-                buildProduct("Super Duper Star", "super-duper-star")
-        );
-    }
+    private ArgumentCaptor<String> recommendationServiceArgumentCaptor;
 
     private static SaveProductDto buildProduct(String name, String sku) {
         return SaveProductDto.builder().name(name).sku(sku).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
@@ -81,15 +76,38 @@ public class ProductServiceTest {
                 .build();
     }
 
-    @ParameterizedTest
-    @MethodSource("provideProducts")
+    @Test
+    @SneakyThrows
     @DisplayName("Should create a new product successfully")
-    void testAddProduct(SaveProductDto product) {
-        ProductBasicDto result = productService.createProduct(product);
+    void testAddProduct() {
+        SaveProductDto productDto = buildProduct("Galaxy A44", "galaxy-a44");
 
-        assertEquals(product.getName(), result.getName());
-        assertEquals(product.getSku(), result.getSku());
-        assertEquals(PRODUCT_PRICE, result.getPrice());
+        UUID categoryId = UUID.randomUUID();
+        String categoryName = "Headphones";
+
+        ProductCategoryEntity categoryEntity = ProductCategoryEntity.builder().id(categoryId).name(categoryName).build();
+
+        ProductEntity entity = ProductEntity.builder()
+                .id(100L)
+                .name(productDto.getName())
+                .sku(productDto.getSku())
+                .price(productDto.getPrice())
+                .description(productDto.getDescription())
+                .categories(Set.of(categoryEntity))
+                .build();
+
+        when(productRepository.existsByName(productDto.getName())).thenReturn(false);
+        when(productCategoryRepository.findAllById(List.of(categoryId))).thenReturn(List.of(categoryEntity));
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(entity);
+
+        ProductDetailDto result = productService.createProduct(productDto);
+
+        assertNotNull(result);
+        assertEquals(productDto.getName(), result.getName());
+        assertEquals(productDto.getSku(), result.getSku());
+        assertEquals(productDto.getPrice(), result.getPrice());
+        assertEquals(productDto.getDescription(), result.getDescription());
+        assertEquals(1, result.getCategories().size());
     }
 
     @Test
@@ -97,17 +115,32 @@ public class ProductServiceTest {
     void testGetAllProducts() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        Page<ProductBasicDto> oldPage = productService.getAllProducts(pageable);
-        assertNotNull(oldPage);
+        ProductBasicProjection proj1 = mock(ProductBasicProjection.class);
+        ProductBasicProjection proj2 = mock(ProductBasicProjection.class);
 
-        SaveProductDto product = buildProduct("Galaxy A44", "galaxy-a44");
-        ProductBasicDto newProduct = productService.createProduct(product);
-        assertNotNull(newProduct);
+        Page<ProductBasicProjection> mockPage = new PageImpl<>(List.of(proj1, proj2));
 
-        Page<ProductBasicDto> newPage = productService.getAllProducts(pageable);
+        when(productRepository.findAllBy(pageable)).thenReturn(mockPage);
 
-        assertNotNull(newPage);
-        assertEquals(1, newPage.getContent().size() - oldPage.getContent().size());
+        Page<ProductBasicDto> result = productService.getAllProducts(pageable);
+
+        verify(productRepository).findAllBy(pageable);
+        assertEquals(2, result.getNumberOfElements());
+    }
+
+    @Test
+    @DisplayName("Should return ALL products when query is empty")
+    void shouldReturnAllProductsForEmptyQuery() {
+        String emptyQuery = "    ";
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<ProductBasicProjection> mockPage = new PageImpl<>(List.of());
+
+        when(productRepository.findAllBy(pageable)).thenReturn(mockPage);
+
+        productService.searchProducts(emptyQuery, pageable);
+
+        verify(productRepository).findAllBy(pageable);
+        verify(productRepository, never()).searchByName(any(), any());
     }
 
     @Test
@@ -118,12 +151,18 @@ public class ProductServiceTest {
         );
 
         SaveProductDto product = buildProduct("Galaxy A45", "galaxy-a45");
-        ProductBasicDto result = productService.createProduct(product);
+        ProductDetailDto result = productService.createProduct(product);
 
-        ProductBasicDto retrievedProduct = productService.getProduct(result.getUuid());
+        ProductDetailDto retrievedProduct = productService.getProduct(result.getSku());
 
         assertNotNull(retrievedProduct);
-        assertEquals(result.getUuid(), retrievedProduct.getUuid());
+        assertEquals(result.getName(), retrievedProduct.getName());
+        assertEquals(result.getSku(), retrievedProduct.getSku());
+        assertEquals(result.getPrice(), retrievedProduct.getPrice());
+        assertEquals(result.getDescription(), retrievedProduct.getDescription());
+        assertEquals(2, retrievedProduct.getRecommendedProducts().size());
+        assertEquals(recommendationServiceArgumentCaptor.getValue(), retrievedProduct.getRecommendedProducts().get(0).getUuid());
+        assertEquals(recommendationServiceArgumentCaptor.getValue(), retrievedProduct.getRecommendedProducts().get(1).getUuid());
     }
 
     @Test
@@ -135,27 +174,41 @@ public class ProductServiceTest {
 
         assertNotNull(result);
 
-        SaveProductDto newProduct = buildProduct("Galaxy A47", "galaxy-a47");
+        SaveProductDto newProduct = SaveProductDto.builder()
+                .name("Galaxy A47")
+                .sku("galaxy-a46")
+                .price(150.0)
+                .description("Updated description")
+                .categoryIds(result.getCategories().stream().map(ProductCategoryDto::getId).toList())
+                .build();
 
-        ProductBasicDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
+        ProductDetailDto updatedProduct = productService.updateProduct(result.getSku(), newProduct);
 
         assertNotNull(updatedProduct);
-        assertEquals(result.getUuid(), updatedProduct.getUuid());
         assertEquals(newProduct.getName(), updatedProduct.getName());
         assertEquals(newProduct.getSku(), updatedProduct.getSku());
         assertEquals(newProduct.getPrice(), updatedProduct.getPrice());
+        assertEquals(newProduct.getDescription(), updatedProduct.getDescription());
     }
 
     @Test
     @DisplayName("Should delete a product successfully")
     void testDeleteProduct() {
         SaveProductDto product = buildProduct("Galaxy A48", "galaxy-a48");
+
+        when(productRepository.existsByName(product.getName())).thenReturn(false);
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(mock(ProductEntity.class));
+
         ProductBasicDto result = productService.createProduct(product);
 
-        productService.deleteProduct(result.getUuid());
+        productService.deleteProduct(result.getSku());
+
+        verify(productRepository).deleteByNaturalId(result.getSku());
+
+        when(productRepository.findByNaturalId(result.getSku())).thenReturn(Optional.empty());
 
         Assertions.assertThrows(ProductNotFoundException.class, () -> {
-            productService.getProduct(result.getUuid());
+            productService.getProduct(result.getSku());
         });
     }
 
@@ -190,12 +243,17 @@ public class ProductServiceTest {
     @Test
     @DisplayName("Should throw ProductCategoryNotFoundException when creating a new product category with non-existent category")
     void testCreateProductWithNonExistentCategory() {
+        UUID categoryId = UUID.randomUUID();
+
         ProductCategoryDto fakeCategory = ProductCategoryDto.builder()
-                .id(UUID.randomUUID())
+                .id(categoryId)
                 .name("Non-Existent")
                 .build();
 
         SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", "test-product-with-non-existent-category", List.of(fakeCategory.getId()));
+
+        when(productRepository.existsByName(productDto.getName())).thenReturn(false);
+        when(productCategoryRepository.findAllById(List.of(categoryId))).thenReturn(List.of());
 
         assertThrows(ProductCategoryNotFoundException.class, () -> {
             productService.createProduct(productDto);
@@ -206,14 +264,12 @@ public class ProductServiceTest {
         return RecommendedProductsDto.builder()
                 .recommendedProducts(List.of(
                         RecommendedProductDto.builder()
-                                .uuid(UUID.randomUUID())
                                 .name("Recommended Product 1")
                                 .sku("RP1")
                                 .price(100.0)
                                 .categories(Set.of())
                                 .build(),
                         RecommendedProductDto.builder()
-                                .uuid(UUID.randomUUID())
                                 .name("Recommended Product 2")
                                 .sku("RP2")
                                 .price(150.0)

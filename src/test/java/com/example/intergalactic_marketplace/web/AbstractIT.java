@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -17,7 +16,6 @@ import java.util.TimeZone;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 @Testcontainers
-@Transactional
 public abstract class AbstractIT {
     static {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));

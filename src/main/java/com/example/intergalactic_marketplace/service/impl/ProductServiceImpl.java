@@ -1,9 +1,6 @@
 package com.example.intergalactic_marketplace.service.impl;
 
-import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
-import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.*;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
 import com.example.intergalactic_marketplace.entity.ProductCategoryEntity;
 import com.example.intergalactic_marketplace.entity.ProductEntity;
@@ -12,8 +9,7 @@ import com.example.intergalactic_marketplace.repository.ProductRepository;
 import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
-import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
-import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
+import com.example.intergalactic_marketplace.service.exception.PersistenceException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
@@ -24,10 +20,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -56,7 +50,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public Page<ProductBasicDto> searchProducts(String name, Pageable pageable) {
-        if(name == null || name.isBlank()){
+        if (name == null || name.isBlank()) {
             return getAllProducts(pageable);
         }
 
@@ -73,50 +67,60 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductBasicDto createProduct(SaveProductDto productDto) {
-        if (productRepository.existsByName(productDto.getName())) {
-            log.error("createProduct: product with name {} already exists", productDto.getName());
+    public ProductDetailDto createProduct(SaveProductDto productDto) {
+        try {
+            List<UUID> categoryIds = productDto.getCategoryIds();
 
-            throw new ProductAlreadyExistsException(productDto.getName());
+            if (categoryIds == null || categoryIds.isEmpty()) {
+                categoryIds = List.of();
+            }
+
+            List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
+
+            if (categoryEntities.size() != categoryIds.size()) {
+                Set<UUID> foundIds = categoryEntities.stream()
+                        .map(ProductCategoryEntity::getId)
+                        .collect(Collectors.toSet());
+
+                List<UUID> missingIds = categoryIds.stream()
+                        .filter(id -> !foundIds.contains(id))
+                        .toList();
+
+                log.error("createProduct: one or more categories with ids={} not found", missingIds);
+
+                throw new ProductCategoryNotFoundException(missingIds);
+            }
+
+            ProductEntity productToSave = productMapper.toProductEntity(productDto);
+
+            productToSave.setCategories(new HashSet<>(categoryEntities));
+
+            ProductEntity savedProduct = productRepository.save(productToSave);
+
+            log.info("createProduct: product={}", savedProduct);
+
+            return productMapper.toProductDetailDto(savedProduct);
+        } catch (Exception ex) {
+            log.error("createProduct: error saving product", ex);
+
+            throw new PersistenceException(ex);
         }
-
-        List<UUID> categoryIds = productDto.getCategoryIds();
-
-        if (categoryIds == null || categoryIds.isEmpty()) {
-            categoryIds = List.of();
-        }
-
-        List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
-
-        if(categoryEntities.size() != categoryIds.size()){
-            log.error("createProduct: one or more categories not found");
-
-            throw new IllegalArgumentException("One or more categories not found");
-        }
-
-        ProductEntity productToSave = productMapper.toProductEntity(productDto);
-
-        productToSave.setCategories(new HashSet<>(categoryEntities));
-
-        ProductEntity savedProduct = productRepository.save(productToSave);
-
-        log.info("createProduct: product={}", savedProduct);
-
-        return productMapper.toProductDto(savedProduct);
     }
 
     @Override
     @Transactional
     public ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto) {
-        ProductCategoryEntity productCategoryToSave = productMapper.toProductCategoryEntity(productCategoryDto);
+        try {
+            ProductCategoryEntity productCategoryToSave = productMapper.toProductCategoryEntity(productCategoryDto);
 
-        if (productCategoryRepository.existsByName(productCategoryDto.getName())) {
-            throw new ProductCategoryAlreadyExistsException(productCategoryDto.getName());
+            ProductCategoryEntity savedProductCategory = productCategoryRepository.save(productCategoryToSave);
+
+            return productMapper.toProductCategoryDto(savedProductCategory);
+        } catch (Exception ex) {
+            log.error("createProductCategory: error saving product category", ex);
+
+            throw new PersistenceException(ex);
         }
-
-        ProductCategoryEntity savedProductCategory = productCategoryRepository.save(productCategoryToSave);
-
-        return productMapper.toProductCategoryDto(savedProductCategory);
     }
 
     @Override
@@ -125,13 +129,13 @@ public class ProductServiceImpl implements ProductService {
         Optional<ProductCategoryEntity> existingProductCategory = productCategoryRepository
                 .findById(productCategoryId);
 
-        if(existingProductCategory.isEmpty()){
+        if (existingProductCategory.isEmpty()) {
             log.warn("updateProductCategory: product category with id {} not found", productCategoryId);
 
             throw new ProductCategoryNotFoundException(productCategoryId);
         }
 
-       productMapper.updateProductEntityFromDto(productCategoryDto, existingProductCategory.get());
+        productMapper.updateProductEntityFromDto(productCategoryDto, existingProductCategory.get());
 
         ProductCategoryEntity updatedProductCategory = productCategoryRepository.save(existingProductCategory.get());
 
@@ -141,10 +145,10 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public ProductBasicDto getProduct(UUID productId) {
-        Optional<ProductEntity> product = productRepository.findByUuid(productId);
+    public ProductDetailDto getProduct(String productId) {
+        Optional<ProductEntity> product = productRepository.findByNaturalId(productId);
 
-        if(product.isEmpty()){
+        if (product.isEmpty()) {
             throw new ProductNotFoundException(productId);
         }
 
@@ -157,10 +161,10 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductBasicDto updateProduct(UUID productId, SaveProductDto productDto) {
-        Optional<ProductEntity> existingProduct = productRepository.findByUuid(productId);
+    public ProductDetailDto updateProduct(String productId, SaveProductDto productDto) {
+        Optional<ProductEntity> existingProduct = productRepository.findByNaturalId(productId);
 
-        if(existingProduct.isEmpty()){
+        if (existingProduct.isEmpty()) {
             log.error("updateProduct: product with id {} not found", productId);
 
             throw new ProductNotFoundException(productId);
@@ -189,18 +193,14 @@ public class ProductServiceImpl implements ProductService {
 
         ProductEntity savedProduct = productRepository.save(existingProduct.get());
 
-        return productMapper.toProductDto(savedProduct);
+        return productMapper.toProductDetailDto(savedProduct);
     }
 
     @Override
     @Transactional
-    public void deleteProduct(UUID productId) {
+    public void deleteProduct(String productId) {
         log.info("deleteProduct: productId={}", productId);
 
-        if (productRepository.existsByUuid(productId)) {
-            productRepository.deleteByUuid(productId);
-
-            log.info("deleteProduct: product removed");
-        }
+        productRepository.deleteByNaturalId(productId);
     }
 }
