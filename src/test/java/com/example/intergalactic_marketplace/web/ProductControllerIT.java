@@ -38,10 +38,7 @@ import java.util.UUID;
 
 import static com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException.FEATURE_TOGGLE_NOT_ENABLED;
 import static com.example.intergalactic_marketplace.web.GlobalExceptionHandler.VALIDATION_FAILED_MESSAGE;
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.reset;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
@@ -176,7 +173,7 @@ public class ProductControllerIT extends AbstractIT {
                 .build();
 
         stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
-                .withQueryParam("productId", equalTo(createdProduct.getSku().toString()))
+                .withQueryParam("productId", equalTo(createdProduct.getSku()))
                 .willReturn(aResponse().withStatus(OK.value())
                         .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
                         .withBody(objectMapper.writeValueAsString(mockRecommendationResponseDto))));
@@ -213,6 +210,7 @@ public class ProductControllerIT extends AbstractIT {
 
         stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
                 .withQueryParam("productId", equalTo(createdProduct.getSku()))
+                .withQueryParam("limit", matching(".*"))
                 .willReturn(aResponse().withStatus(OK.value())
                         .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
                         .withBody(objectMapper.writeValueAsString(mockRecommendationResponseDto))));
@@ -246,8 +244,8 @@ public class ProductControllerIT extends AbstractIT {
                         .content(objectMapper.writeValueAsString(CRATE_PRODUCT_DTO))
                 )
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("product-already-exists"))
-                .andExpect(jsonPath("$.title").value("Product Already Exists"));
+                .andExpect(jsonPath("$.type").value("data-integrity-violation"))
+                .andExpect(jsonPath("$.title").value("Conflict"));
     }
 
     @Test
@@ -388,8 +386,8 @@ public class ProductControllerIT extends AbstractIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(duplicateCategory)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.type").value("product-category-already-exists"))
-                .andExpect(jsonPath("$.title").value("Product Category Already Exists"));
+                .andExpect(jsonPath("$.type").value("data-integrity-violation"))
+                .andExpect(jsonPath("$.title").value("Conflict"));
     }
 
     @Test

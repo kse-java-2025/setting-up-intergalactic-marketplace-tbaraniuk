@@ -9,7 +9,6 @@ import com.example.intergalactic_marketplace.repository.ProductRepository;
 import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
-import com.example.intergalactic_marketplace.service.exception.PersistenceException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
@@ -68,59 +67,45 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductDetailDto createProduct(SaveProductDto productDto) {
-        try {
-            List<UUID> categoryIds = productDto.getCategoryIds();
+        List<UUID> categoryIds = productDto.getCategoryIds();
 
-            if (categoryIds == null || categoryIds.isEmpty()) {
-                categoryIds = List.of();
-            }
-
-            List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
-
-            if (categoryEntities.size() != categoryIds.size()) {
-                Set<UUID> found = categoryEntities.stream()
-                        .map(ProductCategoryEntity::getId)
-                        .collect(Collectors.toSet());
-
-                List<UUID> missing = categoryIds.stream()
-                        .filter(id -> !found.contains(id))
-                        .toList();
-
-                throw new ProductCategoryNotFoundException(missing);
-            }
-
-            ProductEntity productToSave = productMapper.toProductEntity(productDto);
-
-            productToSave.setCategories(new HashSet<>(categoryEntities));
-
-            ProductEntity savedProduct = productRepository.save(productToSave);
-
-            log.info("createProduct: product={}", savedProduct);
-
-            return productMapper.toProductDetailDto(savedProduct);
-        } catch (ProductCategoryNotFoundException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("createProduct: error saving product", ex);
-
-            throw new PersistenceException(ex);
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            categoryIds = List.of();
         }
+
+        List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
+
+        if (categoryEntities.size() != categoryIds.size()) {
+            Set<UUID> found = categoryEntities.stream()
+                    .map(ProductCategoryEntity::getId)
+                    .collect(Collectors.toSet());
+
+            List<UUID> missing = categoryIds.stream()
+                    .filter(id -> !found.contains(id))
+                    .toList();
+
+            throw new ProductCategoryNotFoundException(missing);
+        }
+
+        ProductEntity productToSave = productMapper.toProductEntity(productDto);
+
+        productToSave.setCategories(new HashSet<>(categoryEntities));
+
+        ProductEntity savedProduct = productRepository.save(productToSave);
+
+        log.info("createProduct: product={}", savedProduct);
+
+        return productMapper.toProductDetailDto(savedProduct);
     }
 
     @Override
     @Transactional
     public ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto) {
-        try {
-            ProductCategoryEntity productCategoryToSave = productMapper.toProductCategoryEntity(productCategoryDto);
+        ProductCategoryEntity productCategoryToSave = productMapper.toProductCategoryEntity(productCategoryDto);
 
-            ProductCategoryEntity savedProductCategory = productCategoryRepository.save(productCategoryToSave);
+        ProductCategoryEntity savedProductCategory = productCategoryRepository.save(productCategoryToSave);
 
-            return productMapper.toProductCategoryDto(savedProductCategory);
-        } catch (Exception ex) {
-            log.error("createProductCategory: error saving product category", ex);
-
-            throw new PersistenceException(ex);
-        }
+        return productMapper.toProductCategoryDto(savedProductCategory);
     }
 
     @Override

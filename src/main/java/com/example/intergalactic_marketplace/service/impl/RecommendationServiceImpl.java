@@ -18,7 +18,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service

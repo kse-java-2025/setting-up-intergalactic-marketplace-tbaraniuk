@@ -3,3 +3,9 @@ spring:
     name: intergalactic-marketplace
   jpa:
     show-sql: true
+
+application:
+  feature:
+    toggles:
+      recommendations: true
+      content_translation: true
