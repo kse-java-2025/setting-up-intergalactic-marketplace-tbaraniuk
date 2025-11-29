@@ -1,10 +1,7 @@
 package com.example.intergalactic_marketplace.web;
 
 import com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException;
-import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
-import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
-import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
-import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
+import com.example.intergalactic_marketplace.service.exception.*;
 import com.example.intergalactic_marketplace.web.exception.GreetingNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.ParamsViolationDetails;
 import lombok.extern.slf4j.Slf4j;
@@ -23,13 +20,21 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
-import static org.springframework.http.HttpStatus.CONFLICT;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.*;
 
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public static final String VALIDATION_FAILED_MESSAGE = "Validation failed. Check 'errors' field for details.";
+
+    @ExceptionHandler(PersistenceException.class)
+    ProblemDetail handlePersistenceException(RuntimeException ex) {
+        log.error("Persistence exception raised", ex);
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(INTERNAL_SERVER_ERROR, ex.getMessage());
+        problemDetail.setType(URI.create("persistence-exception"));
+        problemDetail.setTitle("Persistence Exception");
+        return problemDetail;
+    }
 
     @ExceptionHandler(GreetingNotFoundException.class)
     ProblemDetail handleStoreConfigurationNotFoundException(GreetingNotFoundException ex) {

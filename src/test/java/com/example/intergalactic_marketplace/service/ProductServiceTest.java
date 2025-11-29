@@ -151,44 +151,64 @@ public class ProductServiceTest {
         );
 
         SaveProductDto product = buildProduct("Galaxy A45", "galaxy-a45");
-        ProductDetailDto result = productService.createProduct(product);
 
-        ProductDetailDto retrievedProduct = productService.getProduct(result.getSku());
+        when(productRepository.findByNaturalId(product.getSku())).thenReturn(Optional.ofNullable(
+                ProductEntity.builder().name(product.getName()).sku(product.getSku()).price(product.getPrice()).description(product.getDescription()).build())
+        );
+
+        ProductDetailDto retrievedProduct = productService.getProduct(product.getSku());
 
         assertNotNull(retrievedProduct);
-        assertEquals(result.getName(), retrievedProduct.getName());
-        assertEquals(result.getSku(), retrievedProduct.getSku());
-        assertEquals(result.getPrice(), retrievedProduct.getPrice());
-        assertEquals(result.getDescription(), retrievedProduct.getDescription());
+        assertEquals(product.getName(), retrievedProduct.getName());
+        assertEquals(product.getSku(), retrievedProduct.getSku());
+        assertEquals(product.getPrice(), retrievedProduct.getPrice());
+        assertEquals(product.getDescription(), retrievedProduct.getDescription());
         assertEquals(2, retrievedProduct.getRecommendedProducts().size());
-        assertEquals(recommendationServiceArgumentCaptor.getValue(), retrievedProduct.getRecommendedProducts().get(0).getUuid());
-        assertEquals(recommendationServiceArgumentCaptor.getValue(), retrievedProduct.getRecommendedProducts().get(1).getUuid());
+        assertEquals(recommendationServiceArgumentCaptor.getValue(), product.getSku());
     }
 
     @Test
     @DisplayName("Should update a product successfully")
     void testUpdateProduct() {
-        SaveProductDto product = buildProduct("Galaxy A46", "galaxy-a46");
+        String targetSku = "galaxy-a46";
+        UUID newCategoryId = UUID.randomUUID();
 
-        ProductBasicDto result = productService.createProduct(product);
-
-        assertNotNull(result);
-
-        SaveProductDto newProduct = SaveProductDto.builder()
-                .name("Galaxy A47")
-                .sku("galaxy-a46")
-                .price(150.0)
-                .description("Updated description")
-                .categoryIds(result.getCategories().stream().map(ProductCategoryDto::getId).toList())
+        ProductEntity existingEntity = ProductEntity.builder()
+                .id(1L)
+                .name("Galaxy A46")
+                .sku(targetSku)
+                .price(100.0)
+                .description("Old Description")
                 .build();
 
-        ProductDetailDto updatedProduct = productService.updateProduct(result.getSku(), newProduct);
+        SaveProductDto updateDto = SaveProductDto.builder()
+                .name("Galaxy A47")
+                .sku(targetSku)
+                .price(150.0)
+                .description("Updated description")
+                .categoryIds(List.of(newCategoryId))
+                .build();
+
+        ProductCategoryEntity categoryEntity = ProductCategoryEntity.builder()
+                .id(newCategoryId)
+                .name("Electronics")
+                .build();
+
+        when(productRepository.findByNaturalId(targetSku)).thenReturn(
+                Optional.of(existingEntity)
+        );
+        when(productCategoryRepository.findAllById(updateDto.getCategoryIds()))
+                .thenReturn(List.of(categoryEntity));
+        when(productRepository.save(any(ProductEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductDetailDto updatedProduct = productService.updateProduct(targetSku, updateDto);
 
         assertNotNull(updatedProduct);
-        assertEquals(newProduct.getName(), updatedProduct.getName());
-        assertEquals(newProduct.getSku(), updatedProduct.getSku());
-        assertEquals(newProduct.getPrice(), updatedProduct.getPrice());
-        assertEquals(newProduct.getDescription(), updatedProduct.getDescription());
+        assertEquals(updateDto.getName(), updatedProduct.getName());
+        assertEquals(updateDto.getSku(), updatedProduct.getSku());
+        assertEquals(updateDto.getPrice(), updatedProduct.getPrice());
+        assertEquals(updateDto.getDescription(), updatedProduct.getDescription());
     }
 
     @Test
@@ -217,6 +237,11 @@ public class ProductServiceTest {
     void testCreateProductCategory() {
         SaveProductCategoryDto categoryDto = buildProductCategory(PRODUCT_CATEGORY_NAME);
 
+        when(productCategoryRepository.save(any(ProductCategoryEntity.class)))
+                .thenReturn(
+                        ProductCategoryEntity.builder().id(UUID.randomUUID()).name(categoryDto.getName()).build()
+                );
+
         ProductCategoryDto result = productService.createProductCategory(categoryDto);
 
         assertNotNull(result);
@@ -225,19 +250,43 @@ public class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("Should create a new product with categories successfully")
     void testCreateProductWithCategories() {
-        SaveProductCategoryDto categoryDto = buildProductCategory("Headphones");
-        SaveProductCategoryDto categoryDto2 = buildProductCategory("Tablets");
+        UUID catId1 = UUID.randomUUID();
+        UUID catId2 = UUID.randomUUID();
 
-        ProductCategoryDto category1 = productService.createProductCategory(categoryDto);
-        ProductCategoryDto category2 = productService.createProductCategory(categoryDto2);
+        SaveProductDto productDto = buildProductWithCategories("Test", "test", List.of(catId1, catId2));
 
-        SaveProductDto productDto = buildProductWithCategories("Test", "test", List.of(category1.getId(), category2.getId()));
+        ProductCategoryEntity catEntity1 = ProductCategoryEntity.builder().id(catId1).name("Headphones").build();
+        ProductCategoryEntity catEntity2 = ProductCategoryEntity.builder().id(catId2).name("Tablets").build();
+        Set<ProductCategoryEntity> foundCategories = Set.of(catEntity1, catEntity2);
+
+        ProductEntity mappedEntity = new ProductEntity();
+
+        ProductEntity savedEntity = ProductEntity.builder()
+                .id(100L)
+                .name(productDto.getName())
+                .sku(productDto.getSku())
+                .price(productDto.getPrice())
+                .description(productDto.getDescription())
+                .categories(foundCategories)
+                .build();
+
+        when(productCategoryRepository.findAllById(productDto.getCategoryIds()))
+                .thenReturn(foundCategories.stream().toList());
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(savedEntity);
 
         ProductBasicDto result = productService.createProduct(productDto);
 
         assertNotNull(result);
         assertEquals(2, result.getCategories().size());
+
+        ArgumentCaptor<ProductEntity> captor = ArgumentCaptor.forClass(ProductEntity.class);
+        verify(productRepository).save(captor.capture());
+
+        ProductEntity capturedProduct = captor.getValue();
+        assertNotNull(capturedProduct.getCategories());
+        assertEquals(2, capturedProduct.getCategories().size());
     }
 
     @Test
@@ -252,8 +301,8 @@ public class ProductServiceTest {
 
         SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", "test-product-with-non-existent-category", List.of(fakeCategory.getId()));
 
-        when(productRepository.existsByName(productDto.getName())).thenReturn(false);
         when(productCategoryRepository.findAllById(List.of(categoryId))).thenReturn(List.of());
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(mock(ProductEntity.class));
 
         assertThrows(ProductCategoryNotFoundException.class, () -> {
             productService.createProduct(productDto);

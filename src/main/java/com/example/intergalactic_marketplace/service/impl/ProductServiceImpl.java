@@ -78,17 +78,15 @@ public class ProductServiceImpl implements ProductService {
             List<ProductCategoryEntity> categoryEntities = productCategoryRepository.findAllById(categoryIds);
 
             if (categoryEntities.size() != categoryIds.size()) {
-                Set<UUID> foundIds = categoryEntities.stream()
+                Set<UUID> found = categoryEntities.stream()
                         .map(ProductCategoryEntity::getId)
                         .collect(Collectors.toSet());
 
-                List<UUID> missingIds = categoryIds.stream()
-                        .filter(id -> !foundIds.contains(id))
+                List<UUID> missing = categoryIds.stream()
+                        .filter(id -> !found.contains(id))
                         .toList();
 
-                log.error("createProduct: one or more categories with ids={} not found", missingIds);
-
-                throw new ProductCategoryNotFoundException(missingIds);
+                throw new ProductCategoryNotFoundException(missing);
             }
 
             ProductEntity productToSave = productMapper.toProductEntity(productDto);
@@ -100,6 +98,8 @@ public class ProductServiceImpl implements ProductService {
             log.info("createProduct: product={}", savedProduct);
 
             return productMapper.toProductDetailDto(savedProduct);
+        } catch (ProductCategoryNotFoundException ex) {
+            throw ex;
         } catch (Exception ex) {
             log.error("createProduct: error saving product", ex);
 

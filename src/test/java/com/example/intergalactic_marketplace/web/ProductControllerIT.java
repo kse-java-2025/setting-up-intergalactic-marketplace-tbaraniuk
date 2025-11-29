@@ -212,7 +212,7 @@ public class ProductControllerIT extends AbstractIT {
                 .build();
 
         stubFor(WireMock.get(urlPathEqualTo("/recommendation-service/v1/recommendations"))
-                .withQueryParam("productId", equalTo(createdProduct.getSku().toString()))
+                .withQueryParam("productId", equalTo(createdProduct.getSku()))
                 .willReturn(aResponse().withStatus(OK.value())
                         .withHeader(CONTENT_TYPE, APPLICATION_JSON_VALUE)
                         .withBody(objectMapper.writeValueAsString(mockRecommendationResponseDto))));

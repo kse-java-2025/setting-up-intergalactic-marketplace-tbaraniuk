@@ -50,7 +50,7 @@ public interface ProductMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateProductEntityFromDto(SaveProductDto dto, @MappingTarget ProductEntity productEntity);
 
-    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "id", source = "productCategory.id")
     @Mapping(target = "name", source = "productCategory.name")
     ProductCategoryDto toProductCategoryDto(ProductCategoryEntity productCategory);
 

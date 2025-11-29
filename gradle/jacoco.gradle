@@ -9,7 +9,6 @@ tasks.register('integrationTest', Test) {
     description = "Defines the test type 'integrationTest' for thin integration test"
     useJUnitPlatform()
 
-    // CRITICAL FIX: Must specify source sets
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 
