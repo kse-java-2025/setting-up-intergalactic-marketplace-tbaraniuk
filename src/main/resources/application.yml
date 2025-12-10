@@ -1,6 +1,27 @@
 spring:
   application:
     name: intergalactic-marketplace
+  jpa:
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+    hibernate:
+      ddl-auto: none
+  datasource:
+    url: jdbc:postgresql://localhost:5432/intergalactic_marketplace
+    username: postgres
+    password: postgres
+    hikari:
+      auto-commit: false
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      pool-name: intergalactic-marketplace-hikari-cp
+  liquibase:
+    enabled: true
+    change-log: classpath:liquibase/changelog.yaml
 
 application:
     restclient:
@@ -20,7 +41,6 @@ application:
       toggles:
           recommendations: true
           content_translation: true
-
 
 greeting:
   greetings:

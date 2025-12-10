@@ -8,6 +8,6 @@ import java.util.UUID;
 @Value
 @Builder
 public class ProductCategoryDto {
-    UUID uuid;
+    UUID id;
     String name;
 }

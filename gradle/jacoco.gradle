@@ -7,11 +7,85 @@ jacoco {
 
 tasks.register('integrationTest', Test) {
     description = "Defines the test type 'integrationTest' for thin integration test"
+    useJUnitPlatform()
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    maxParallelForks = 4
+
+    filter {
+        includeTestsMatching '*IT'
+    }
+
+    finalizedBy jacocoIntegrationTestReport
+}
+
+test {
+    filter {
+        excludeTestsMatching '*IT'
+    }
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    group = "Reporting"
+    description = "Creates the result report of the Unit Test"
+    dependsOn test
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/test.exec"))
+
+    reports {
+        csv.required = true
+        xml.required = false
+        html.required = true
+        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.xml").get().asFile
+        html.outputLocation = layout.buildDirectory.dir("reports/coverage")
+        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.csv").get().asFile
+    }
+
+    finalizedBy jacocoTestCoverageVerification
+}
+
+// Apply exclusions to jacocoTestReport after project evaluation
+afterEvaluate {
+    jacocoTestReport.classDirectories.setFrom(files(jacocoTestReport.classDirectories.files.collect {
+        fileTree(dir: it, exclude: filesExcludedFromCoverage)
+    }))
+}
+
+tasks.register('jacocoIntegrationTestReport', JacocoReport) {
+    dependsOn integrationTest
+    group = "Reporting"
+    description = "Creates the result report of the (Thin) Integration Test"
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/integrationTest.exec"))
+    classDirectories.setFrom(sourceSets.main.output)
+    sourceDirectories.setFrom(sourceSets.main.allSource)
+
+    reports {
+        csv.required = true
+        xml.required = false
+        html.required = true
+        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.xml").get().asFile
+        html.outputLocation = layout.buildDirectory.dir("reports/coverageIT")
+        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.csv").get().asFile
+    }
+}
+
+// Apply exclusions to jacocoIntegrationTestReport after project evaluation
+afterEvaluate {
+    jacocoIntegrationTestReport.classDirectories.setFrom(files(jacocoIntegrationTestReport.classDirectories.files.collect {
+        fileTree(dir: it, exclude: filesExcludedFromCoverage)
+    }))
 }
 
 jacocoTestCoverageVerification {
-    description = "Verifies coverage based on defined thresholds on all tests (incl. Unit and Integration))"
-    executionData = fileTree(layout.buildDirectory).include("/jacoco/*.exec")
+    dependsOn jacocoTestReport
+    description = "Verifies coverage based on defined thresholds on all tests (incl. Unit and Integration)"
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/*.exec"))
+
     violationRules {
         rule {
             enabled = true
@@ -26,56 +100,4 @@ jacocoTestCoverageVerification {
     }
 }
 
-jacocoTestReport {
-    group = "Reporting"
-    description = "Creates the result report of the Unit Test"
-    getExecutionData().setFrom(fileTree(layout.buildDirectory).include("/jacoco/*.exec"))
-    reports {
-        csv.required = true
-        xml.required = false
-        html.required = true
-        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.xml").get().asFile
-        html.outputLocation = layout.buildDirectory.dir("reports/coverage")
-        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.csv").get().asFile
-    }
-    afterEvaluate {
-        classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it, exclude: filesExcludedFromCoverage)
-        }))
-    }
-    finalizedBy jacocoTestCoverageVerification
-}
-
-tasks.register('jacocoIntegrationTestReport', JacocoReport) {
-    dependsOn integrationTest
-    group = "Reporting"
-    description = "Creates the result report of the (Thin) Integration Test"
-    getExecutionData().setFrom(fileTree(layout.buildDirectory).include("/jacoco/integrationTest.exec"))
-    classDirectories.setFrom(tasks.jacocoTestReport.classDirectories)
-    reports {
-        csv.required = true
-        xml.required = false
-        html.required = true
-        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.xml").get().asFile
-        html.outputLocation = layout.buildDirectory.dir("reports/coverage")
-        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.csv").get().asFile
-    }
-}
-
-test {
-    filter {
-        excludeTestsMatching '*IT'
-    }
-    finalizedBy jacocoTestReport
-}
-
-integrationTest {
-    maxParallelForks = 4
-    filter {
-        includeTestsMatching '*IT'
-    }
-    finalizedBy tasks.jacocoIntegrationTestReport
-}
-
-jacocoTestCoverageVerification.dependsOn jacocoTestReport
-test.dependsOn jacocoIntegrationTestReport
+check.dependsOn integrationTest
