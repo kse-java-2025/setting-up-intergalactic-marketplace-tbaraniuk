@@ -16,6 +16,11 @@ application:
           url: /api-specs/greeting-api-spec.yaml
         - name: Product API
           url: /api-specs/product-api-spec.yaml
+    feature:
+      toggles:
+          recommendations: true
+          content_translation: true
+
 
 greeting:
   greetings:

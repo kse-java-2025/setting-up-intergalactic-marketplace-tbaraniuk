@@ -1,5 +1,6 @@
 package com.example.intergalactic_marketplace.web;
 
+import com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException;
 import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
@@ -82,6 +83,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
         problemDetail.setType(URI.create("product-category-not-found"));
         problemDetail.setTitle("Product Category Not Found");
+        problemDetail.setProperty("timestamp", Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(FeatureToggleNotEnabledException.class)
+    ProblemDetail handleFeatureToggleNotEnabledException(FeatureToggleNotEnabledException ex) {
+        log.warn("Feature Toggle Not Enabled exception raised");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(NOT_FOUND, ex.getMessage());
+        problemDetail.setType(URI.create("feature-toggle-not-enabled"));
+        problemDetail.setTitle("Feature Toggle Not Enabled");
         problemDetail.setProperty("timestamp", Instant.now());
         return problemDetail;
     }

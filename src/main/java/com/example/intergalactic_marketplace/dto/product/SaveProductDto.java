@@ -26,6 +26,5 @@ public class SaveProductDto {
     @Min(value = 0, message = "The price of the product must be greater than or equal to zero")
     Double price;
 
-//    @NotNull(message = "The product categories cannot be null")
     List<ProductCategoryDto> categories;
 }

@@ -5,6 +5,7 @@ import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
 import com.example.intergalactic_marketplace.service.ProductService;
+import com.example.intergalactic_marketplace.service.TranslationService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,9 +22,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1/products")
 public class ProductController {
     private final ProductService productService;
+    private final TranslationService translationService;
 
-    public ProductController (ProductService productService) {
+    public ProductController (ProductService productService, TranslationService translationService) {
         this.productService = productService;
+        this.translationService = translationService;
     }
 
     @GetMapping
@@ -68,5 +71,12 @@ public class ProductController {
         productService.deleteProduct(productId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{productId}/translate")
+    public ResponseEntity<String> translateProduct (@PathVariable UUID productId, @RequestBody String language) {
+        String translatedText = translationService.translateProduct(productId.toString(), language);
+
+        return ResponseEntity.ok(translatedText);
     }
 }
