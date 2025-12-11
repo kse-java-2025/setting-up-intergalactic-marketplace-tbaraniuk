@@ -1,0 +1,13 @@
+{
+  "keys": [
+    {
+      "typ": "JWT",
+      "alg": "RS256",
+      "n": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY1NDY1NDkwLCJleHAiOjE3NjU0NjkwOTB9.uKrKUXru2AKfTURQM1tEBk7qa822GDmq71zYB9No0q_AgE9spGzeb5ThSzjcABfciS65I7UGzzAxOGinH9u6ke2gypw3pbA0cfIeg9EzadJU4nSgiz2N-JpHK8mdf05JPK3YMnMK6MeBufm9SZX0gPLeWz4u6EyuFtoW8Y9W9CJzbEULRSpb3dho-AslA48AKPfOzzqrSbZhk4KZm1bXCy1n0PFW_d6ZGOm8-vODBOEW8UYDQ4XVN9Zg7BT7Evl735Ie-qPlifQD-cpsqsU9AXj3R4g5u6aQzr1g81xLhHTkTVopd6BVWjVTLCl6mgLWpv4x0aA_WICvefm7MzKWpw",
+      "ext": true,
+      "kid": "galactic-key",
+      "kty": "RSA",
+      "use": "sig"
+    }
+  ]
+}
