@@ -28,7 +28,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -55,6 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 @DisplayName("ProductController Integration Tests")
 @Tag("product-service")
 @ExtendWith(FeatureToggleExtension.class)
@@ -126,7 +127,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should create a new product successfully")
     void testCreatingProduct() {
         MvcResult createResult = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
@@ -230,7 +230,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should not create a new product with same name")
     void testAddProductWithSameName() {
         mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
@@ -253,7 +252,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should not create a new product with invalid name")
     void testAddProductWithInvalidName() {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(BAD_REQUEST, VALIDATION_FAILED_MESSAGE);
@@ -273,7 +271,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should update a product successfully")
     void testUpdateProductWithCategories() {
         String OLD_PRODUCT_NAME = "Old Star Product Name";
@@ -321,7 +318,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should update a product successfully")
     void testDeleteNonExistentProduct() {
         mockMvc.perform(delete("/api/v1/products/{id}", java.util.UUID.randomUUID()))
@@ -330,7 +326,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should delete existing product")
     void testDeleteExistingProduct() {
         MvcResult createResult = mockMvc.perform(post("/api/v1/products")
@@ -353,7 +348,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should create product with categories and retrieve with categories")
     void testCreateProductCategoryAndRetrieve() {
         ProductCategoryDto productCategory = createCategory(CREATE_PRODUCT_CATEGORY_DTO.getName());
@@ -381,7 +375,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should fail when creating duplicate category")
     void testCreateDuplicateCategory() {
         String categoryName = "Duplicate Category";
@@ -401,7 +394,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisplayName("Should update a product category successfully")
     void testUpdateProductCategory() {
         ProductCategoryDto category = createCategory("Category 1");
@@ -419,7 +411,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @DisabledFeatureToggle(FeatureToggles.CONTENT_TRANSLATION)
     @DisplayName("Should fail return product translation on feature off")
     void testTranslationFeatureDisabled() {
@@ -450,7 +441,6 @@ public class ProductControllerIT extends AbstractIT {
 
     @Test
     @SneakyThrows
-    @WithMockUser
     @EnabledFeatureToggle(FeatureToggles.CONTENT_TRANSLATION)
     @DisplayName("Should return product translation on feature on")
     void testTranslationFeatureEnabled() {
