@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @DisplayName("GreetingController Integration Tests")
 @Tag("greeting")
-public class GreetingControllerIT {
+public class GreetingControllerIT extends AbstractIT {
     private static final String GREETING_VALID_NAME = "bob";
     private static final String GREETING_VALID_MESSAGE = "Hello Bob!";
 

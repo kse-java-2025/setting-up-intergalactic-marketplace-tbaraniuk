@@ -9,6 +9,6 @@ import java.util.UUID;
 @Value
 @Builder
 public class RecommendedProducts {
-    UUID productId;
+    String productId;
     List<RecommendedProduct> recommendedProducts;
 }

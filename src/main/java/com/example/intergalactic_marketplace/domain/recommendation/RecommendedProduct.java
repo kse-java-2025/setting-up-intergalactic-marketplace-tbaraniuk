@@ -10,8 +10,8 @@ import java.util.UUID;
 @Value
 @Builder
 public class RecommendedProduct {
-    UUID uuid;
     String name;
+    String sku;
     Double price;
     Set<ProductCategory> categories;
 }

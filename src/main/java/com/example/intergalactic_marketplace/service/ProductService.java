@@ -9,15 +9,17 @@ import java.util.UUID;
 public interface ProductService {
     Page<ProductBasicDto> getAllProducts(Pageable pageable);
 
-    ProductBasicDto createProduct(SaveProductDto productDto);
+    Page<ProductBasicDto> searchProducts(String name, Pageable pageable);
+
+    ProductDetailDto createProduct(SaveProductDto productDto);
 
     ProductCategoryDto createProductCategory(SaveProductCategoryDto productCategoryDto);
 
     ProductCategoryDto updateProductCategory(UUID productCategoryId, SaveProductCategoryDto productCategoryDto);
 
-    ProductBasicDto getProduct(UUID productId);
+    ProductDetailDto getProduct(String productId);
 
-    ProductBasicDto updateProduct(UUID productId, SaveProductDto productDto);
+    ProductDetailDto updateProduct(String productId, SaveProductDto productDto);
 
-    void deleteProduct(UUID productId);
+    void deleteProduct(String productId);
 }

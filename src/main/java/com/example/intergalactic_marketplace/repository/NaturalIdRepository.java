@@ -1,0 +1,14 @@
+package com.example.intergalactic_marketplace.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.NoRepositoryBean;
+
+import java.io.Serializable;
+import java.util.Optional;
+
+@NoRepositoryBean
+public interface NaturalIdRepository<T, ID> extends JpaRepository<T, ID> {
+    Optional<T> findByNaturalId(ID id);
+
+    void deleteByNaturalId(ID id);
+}

@@ -11,6 +11,6 @@ import java.util.UUID;
 @Builder(toBuilder = true)
 @Jacksonized
 public class RecommendationClientResponseDto {
-    UUID productId;
+    String productId;
     List<RecommendedProductDto> recommendedProducts;
 }

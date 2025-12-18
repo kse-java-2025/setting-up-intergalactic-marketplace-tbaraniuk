@@ -1,39 +1,43 @@
 package com.example.intergalactic_marketplace.service;
 
 import com.example.intergalactic_marketplace.config.MappersTestConfiguration;
+import com.example.intergalactic_marketplace.dto.product.ProductDetailDto;
 import com.example.intergalactic_marketplace.dto.product.ProductBasicDto;
 import com.example.intergalactic_marketplace.dto.product.ProductCategoryDto;
-import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.product.SaveProductDto;
+import com.example.intergalactic_marketplace.dto.product.SaveProductCategoryDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductDto;
 import com.example.intergalactic_marketplace.dto.recommendation.RecommendedProductsDto;
+import com.example.intergalactic_marketplace.entity.ProductCategoryEntity;
+import com.example.intergalactic_marketplace.entity.ProductEntity;
+import com.example.intergalactic_marketplace.repository.ProductCategoryRepository;
+import com.example.intergalactic_marketplace.repository.ProductRepository;
+import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.impl.ProductServiceImpl;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = ProductServiceImpl.class)
 @Import(MappersTestConfiguration.class)
@@ -44,27 +48,26 @@ public class ProductServiceTest {
     private static final String PRODUCT_CATEGORY_NAME = "Electronics";
 
     @MockitoBean
+    private ProductRepository productRepository;
+
+    @MockitoBean
+    private ProductCategoryRepository productCategoryRepository;
+
+    @MockitoBean
     private RecommendationService recommendationService;
 
     @Autowired
     private ProductService productService;
 
     @Captor
-    private ArgumentCaptor<UUID> recommendationServiceArgumentCaptor;
+    private ArgumentCaptor<String> recommendationServiceArgumentCaptor;
 
-    private static Stream<SaveProductDto> provideProducts() {
-        return Stream.of(
-                buildProduct("Galaxy Super Test"),
-                buildProduct("Super Duper Star")
-        );
+    private static SaveProductDto buildProduct(String name, String sku) {
+        return SaveProductDto.builder().name(name).sku(sku).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
     }
 
-    private static SaveProductDto buildProduct(String name) {
-        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).build();
-    }
-
-    private static SaveProductDto buildProductWithCategories(String name, List<ProductCategoryDto> categories) {
-        return SaveProductDto.builder().name(name).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).categories(categories).build();
+    private static SaveProductDto buildProductWithCategories(String name, String sku, List<UUID> categoryIds) {
+        return SaveProductDto.builder().name(name).sku(sku).price(PRODUCT_PRICE).description(PRODUCT_DESCRIPTION).categoryIds(categoryIds).build();
     }
 
     private static SaveProductCategoryDto buildProductCategory(String productCategoryName) {
@@ -73,15 +76,38 @@ public class ProductServiceTest {
                 .build();
     }
 
-    @ParameterizedTest
-    @MethodSource("provideProducts")
+    @Test
+    @SneakyThrows
     @DisplayName("Should create a new product successfully")
-    void testAddProduct(SaveProductDto product) {
-        ProductBasicDto result = productService.createProduct(product);
+    void testAddProduct() {
+        SaveProductDto productDto = buildProduct("Galaxy A44", "galaxy-a44");
 
-        assertEquals(product.getName(), result.getName());
-        assertEquals(PRODUCT_PRICE, result.getPrice());
-        assertEquals(PRODUCT_DESCRIPTION, result.getDescription());
+        UUID categoryId = UUID.randomUUID();
+        String categoryName = "Headphones";
+
+        ProductCategoryEntity categoryEntity = ProductCategoryEntity.builder().id(categoryId).name(categoryName).build();
+
+        ProductEntity entity = ProductEntity.builder()
+                .id(100L)
+                .name(productDto.getName())
+                .sku(productDto.getSku())
+                .price(productDto.getPrice())
+                .description(productDto.getDescription())
+                .categories(Set.of(categoryEntity))
+                .build();
+
+        when(productRepository.existsByName(productDto.getName())).thenReturn(false);
+        when(productCategoryRepository.findAllById(List.of(categoryId))).thenReturn(List.of(categoryEntity));
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(entity);
+
+        ProductDetailDto result = productService.createProduct(productDto);
+
+        assertNotNull(result);
+        assertEquals(productDto.getName(), result.getName());
+        assertEquals(productDto.getSku(), result.getSku());
+        assertEquals(productDto.getPrice(), result.getPrice());
+        assertEquals(productDto.getDescription(), result.getDescription());
+        assertEquals(1, result.getCategories().size());
     }
 
     @Test
@@ -89,17 +115,32 @@ public class ProductServiceTest {
     void testGetAllProducts() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        Page<ProductBasicDto> oldPage = productService.getAllProducts(pageable);
-        assertNotNull(oldPage);
+        ProductBasicProjection proj1 = mock(ProductBasicProjection.class);
+        ProductBasicProjection proj2 = mock(ProductBasicProjection.class);
 
-        SaveProductDto product = buildProduct("Galaxy A44");
-        ProductBasicDto newProduct = productService.createProduct(product);
-        assertNotNull(newProduct);
+        Page<ProductBasicProjection> mockPage = new PageImpl<>(List.of(proj1, proj2));
 
-        Page<ProductBasicDto> newPage = productService.getAllProducts(pageable);
+        when(productRepository.findAllBy(pageable)).thenReturn(mockPage);
 
-        assertNotNull(newPage);
-        assertEquals(1, newPage.getContent().size() - oldPage.getContent().size());
+        Page<ProductBasicDto> result = productService.getAllProducts(pageable);
+
+        verify(productRepository).findAllBy(pageable);
+        assertEquals(2, result.getNumberOfElements());
+    }
+
+    @Test
+    @DisplayName("Should return ALL products when query is empty")
+    void shouldReturnAllProductsForEmptyQuery() {
+        String emptyQuery = "    ";
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<ProductBasicProjection> mockPage = new PageImpl<>(List.of());
+
+        when(productRepository.findAllBy(pageable)).thenReturn(mockPage);
+
+        productService.searchProducts(emptyQuery, pageable);
+
+        verify(productRepository).findAllBy(pageable);
+        verify(productRepository, never()).searchByName(any(), any());
     }
 
     @Test
@@ -109,45 +150,85 @@ public class ProductServiceTest {
                 inv -> buildRecommendedProductsMock()
         );
 
-        SaveProductDto product = buildProduct("Galaxy A45");
-        ProductBasicDto result = productService.createProduct(product);
+        SaveProductDto product = buildProduct("Galaxy A45", "galaxy-a45");
 
-        ProductBasicDto retrievedProduct = productService.getProduct(result.getUuid());
+        when(productRepository.findByNaturalId(product.getSku())).thenReturn(Optional.ofNullable(
+                ProductEntity.builder().name(product.getName()).sku(product.getSku()).price(product.getPrice()).description(product.getDescription()).build())
+        );
+
+        ProductDetailDto retrievedProduct = productService.getProduct(product.getSku());
 
         assertNotNull(retrievedProduct);
-        assertEquals(result.getUuid(), retrievedProduct.getUuid());
+        assertEquals(product.getName(), retrievedProduct.getName());
+        assertEquals(product.getSku(), retrievedProduct.getSku());
+        assertEquals(product.getPrice(), retrievedProduct.getPrice());
+        assertEquals(product.getDescription(), retrievedProduct.getDescription());
+        assertEquals(2, retrievedProduct.getRecommendedProducts().size());
+        assertEquals(recommendationServiceArgumentCaptor.getValue(), product.getSku());
     }
 
     @Test
     @DisplayName("Should update a product successfully")
     void testUpdateProduct() {
-        SaveProductDto product = buildProduct("Galaxy A46");
+        String targetSku = "galaxy-a46";
+        UUID newCategoryId = UUID.randomUUID();
 
-        ProductBasicDto result = productService.createProduct(product);
+        ProductEntity existingEntity = ProductEntity.builder()
+                .id(1L)
+                .name("Galaxy A46")
+                .sku(targetSku)
+                .price(100.0)
+                .description("Old Description")
+                .build();
 
-        assertNotNull(result);
+        SaveProductDto updateDto = SaveProductDto.builder()
+                .name("Galaxy A47")
+                .sku(targetSku)
+                .price(150.0)
+                .description("Updated description")
+                .categoryIds(List.of(newCategoryId))
+                .build();
 
-        SaveProductDto newProduct = buildProduct("Galaxy A47");
+        ProductCategoryEntity categoryEntity = ProductCategoryEntity.builder()
+                .id(newCategoryId)
+                .name("Electronics")
+                .build();
 
-        ProductBasicDto updatedProduct = productService.updateProduct(result.getUuid(), newProduct);
+        when(productRepository.findByNaturalId(targetSku)).thenReturn(
+                Optional.of(existingEntity)
+        );
+        when(productCategoryRepository.findAllById(updateDto.getCategoryIds()))
+                .thenReturn(List.of(categoryEntity));
+        when(productRepository.save(any(ProductEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductDetailDto updatedProduct = productService.updateProduct(targetSku, updateDto);
 
         assertNotNull(updatedProduct);
-        assertEquals(result.getUuid(), updatedProduct.getUuid());
-        assertEquals(newProduct.getName(), updatedProduct.getName());
-        assertEquals(newProduct.getPrice(), updatedProduct.getPrice());
-        assertEquals(newProduct.getDescription(), updatedProduct.getDescription());
+        assertEquals(updateDto.getName(), updatedProduct.getName());
+        assertEquals(updateDto.getSku(), updatedProduct.getSku());
+        assertEquals(updateDto.getPrice(), updatedProduct.getPrice());
+        assertEquals(updateDto.getDescription(), updatedProduct.getDescription());
     }
 
     @Test
     @DisplayName("Should delete a product successfully")
     void testDeleteProduct() {
-        SaveProductDto product = buildProduct("Galaxy A48");
+        SaveProductDto product = buildProduct("Galaxy A48", "galaxy-a48");
+
+        when(productRepository.existsByName(product.getName())).thenReturn(false);
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(mock(ProductEntity.class));
+
         ProductBasicDto result = productService.createProduct(product);
 
-        productService.deleteProduct(result.getUuid());
+        productService.deleteProduct(result.getSku());
+
+        verify(productRepository).deleteByNaturalId(result.getSku());
+
+        when(productRepository.findByNaturalId(result.getSku())).thenReturn(Optional.empty());
 
         Assertions.assertThrows(ProductNotFoundException.class, () -> {
-            productService.getProduct(result.getUuid());
+            productService.getProduct(result.getSku());
         });
     }
 
@@ -156,38 +237,72 @@ public class ProductServiceTest {
     void testCreateProductCategory() {
         SaveProductCategoryDto categoryDto = buildProductCategory(PRODUCT_CATEGORY_NAME);
 
+        when(productCategoryRepository.save(any(ProductCategoryEntity.class)))
+                .thenReturn(
+                        ProductCategoryEntity.builder().id(UUID.randomUUID()).name(categoryDto.getName()).build()
+                );
+
         ProductCategoryDto result = productService.createProductCategory(categoryDto);
 
         assertNotNull(result);
-        assertNotNull(result.getUuid());
+        assertNotNull(result.getId());
         assertEquals(PRODUCT_CATEGORY_NAME, result.getName());
     }
 
     @Test
+    @DisplayName("Should create a new product with categories successfully")
     void testCreateProductWithCategories() {
-        SaveProductCategoryDto categoryDto = buildProductCategory("Headphones");
-        SaveProductCategoryDto categoryDto2 = buildProductCategory("Tablets");
+        UUID catId1 = UUID.randomUUID();
+        UUID catId2 = UUID.randomUUID();
 
-        ProductCategoryDto category1 = productService.createProductCategory(categoryDto);
-        ProductCategoryDto category2 = productService.createProductCategory(categoryDto2);
+        SaveProductDto productDto = buildProductWithCategories("Test", "test", List.of(catId1, catId2));
 
-        SaveProductDto productDto = buildProductWithCategories("Test", List.of(category1, category2));
+        ProductCategoryEntity catEntity1 = ProductCategoryEntity.builder().id(catId1).name("Headphones").build();
+        ProductCategoryEntity catEntity2 = ProductCategoryEntity.builder().id(catId2).name("Tablets").build();
+        Set<ProductCategoryEntity> foundCategories = Set.of(catEntity1, catEntity2);
+
+        ProductEntity mappedEntity = new ProductEntity();
+
+        ProductEntity savedEntity = ProductEntity.builder()
+                .id(100L)
+                .name(productDto.getName())
+                .sku(productDto.getSku())
+                .price(productDto.getPrice())
+                .description(productDto.getDescription())
+                .categories(foundCategories)
+                .build();
+
+        when(productCategoryRepository.findAllById(productDto.getCategoryIds()))
+                .thenReturn(foundCategories.stream().toList());
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(savedEntity);
 
         ProductBasicDto result = productService.createProduct(productDto);
 
         assertNotNull(result);
         assertEquals(2, result.getCategories().size());
+
+        ArgumentCaptor<ProductEntity> captor = ArgumentCaptor.forClass(ProductEntity.class);
+        verify(productRepository).save(captor.capture());
+
+        ProductEntity capturedProduct = captor.getValue();
+        assertNotNull(capturedProduct.getCategories());
+        assertEquals(2, capturedProduct.getCategories().size());
     }
 
     @Test
     @DisplayName("Should throw ProductCategoryNotFoundException when creating a new product category with non-existent category")
     void testCreateProductWithNonExistentCategory() {
+        UUID categoryId = UUID.randomUUID();
+
         ProductCategoryDto fakeCategory = ProductCategoryDto.builder()
-                .uuid(UUID.randomUUID())
+                .id(categoryId)
                 .name("Non-Existent")
                 .build();
 
-        SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", List.of(fakeCategory));
+        SaveProductDto productDto = buildProductWithCategories("Test Product With Non-Existent Category", "test-product-with-non-existent-category", List.of(fakeCategory.getId()));
+
+        when(productCategoryRepository.findAllById(List.of(categoryId))).thenReturn(List.of());
+        when(productRepository.save(any(ProductEntity.class))).thenReturn(mock(ProductEntity.class));
 
         assertThrows(ProductCategoryNotFoundException.class, () -> {
             productService.createProduct(productDto);
@@ -198,14 +313,14 @@ public class ProductServiceTest {
         return RecommendedProductsDto.builder()
                 .recommendedProducts(List.of(
                         RecommendedProductDto.builder()
-                                .uuid(UUID.randomUUID())
                                 .name("Recommended Product 1")
+                                .sku("RP1")
                                 .price(100.0)
                                 .categories(Set.of())
                                 .build(),
                         RecommendedProductDto.builder()
-                                .uuid(UUID.randomUUID())
                                 .name("Recommended Product 2")
+                                .sku("RP2")
                                 .price(150.0)
                                 .categories(Set.of())
                                 .build()

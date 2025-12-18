@@ -1,17 +1,12 @@
 package com.example.intergalactic_marketplace.web;
 
 import com.example.intergalactic_marketplace.featuretoggle.exception.FeatureToggleNotEnabledException;
-import com.example.intergalactic_marketplace.service.exception.ProductAlreadyExistsException;
-import com.example.intergalactic_marketplace.service.exception.ProductCategoryAlreadyExistsException;
-import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
-import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
+import com.example.intergalactic_marketplace.service.exception.*;
 import com.example.intergalactic_marketplace.web.exception.GreetingNotFoundException;
 import com.example.intergalactic_marketplace.web.exception.ParamsViolationDetails;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -23,13 +18,32 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
-import static org.springframework.http.HttpStatus.CONFLICT;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.*;
 
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public static final String VALIDATION_FAILED_MESSAGE = "Validation failed. Check 'errors' field for details.";
+
+    @ExceptionHandler(PersistenceException.class)
+    ProblemDetail handlePersistenceException(PersistenceException ex) {
+        log.warn("Persistence Exception raised: {}", ex.getMessage());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(INTERNAL_SERVER_ERROR, ex.getMessage());
+        problemDetail.setType(URI.create("persistence-exception"));
+        problemDetail.setTitle("Persistence Exception");
+        return problemDetail;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Data Integrity Violation exception raised: {}", ex.getMessage());
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Database constraint violation");
+        problemDetail.setType(URI.create("data-integrity-violation"));
+        problemDetail.setTitle("Conflict");
+        return problemDetail;
+    }
 
     @ExceptionHandler(GreetingNotFoundException.class)
     ProblemDetail handleStoreConfigurationNotFoundException(GreetingNotFoundException ex) {

@@ -6,6 +6,7 @@ import lombok.Value;
 import lombok.experimental.SuperBuilder;
 import lombok.extern.jackson.Jacksonized;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Value
@@ -13,5 +14,10 @@ import java.util.List;
 @Jacksonized
 @EqualsAndHashCode(callSuper = true)
 public class ProductDetailDto extends ProductBasicDto {
+    String description;
+
+    LocalDateTime createdAt;
+    LocalDateTime updatedAt;
+
     List<RecommendedProduct> recommendedProducts;
 }
