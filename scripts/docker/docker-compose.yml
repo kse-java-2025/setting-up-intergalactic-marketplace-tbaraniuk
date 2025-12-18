@@ -1,0 +1,36 @@
+version: '3.8'
+
+networks:
+  services:
+    name: cluster
+
+services:
+  galactic-recommendation-service:
+    build:
+      context: ./recommendation-mock
+      dockerfile: Dockerfile
+    networks:
+      - services
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    ports:
+      - "8089:8080"
+  cosmic-jwt-issuer-mock:
+    build:
+      context: ./jwt-issuer-mock
+      dockerfile: Dockerfile
+    networks:
+      - services
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/__admin/requests || exit 1" ]
+      start_period: 10s  # increased to allow the container to initialize properly
+      interval: 5s       # interval between health checks
+      timeout: 2s        # timeout for each health check
+      retries: 3         # number of retries before considering the service unhealthy
+    volumes:
+      - ./jwt-issuer-mock/jwks.json:/var/wiremock/__files/jwks.json
+    ports:
+      - "8083:8080"

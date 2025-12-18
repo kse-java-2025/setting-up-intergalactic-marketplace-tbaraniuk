@@ -1,0 +1,76 @@
+logging:
+  level:
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.web.client: DEBUG
+
+spring:
+  application:
+    name: intergalactic-marketplace
+  profiles:
+    active: local
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jws-algorithms: RS256
+          jwk-set-uri: http://localhost:8083/auth/realms/intergalactic-marketplace
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope: user:email
+            redirect-uri: http://localhost:8080/login/oauth2/code/github
+            authorization-grant-type: authorization_code
+        provider:
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+  jpa:
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+    hibernate:
+      ddl-auto: none
+  datasource:
+    url: jdbc:postgresql://localhost:5432/intergalactic_marketplace
+    username: postgres
+    password: postgres
+    hikari:
+      auto-commit: false
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      max-lifetime: 1800000
+      pool-name: intergalactic-marketplace-hikari-cp
+  liquibase:
+    enabled: true
+    database-change-log-lock-table: DATABASECHANGELOGLOCK
+    change-log: classpath:liquibase/changelog.yaml
+
+application:
+    restclient:
+      response-timeout: 2000
+    recommendation-service:
+      base-path: http://localhost:8089
+      url: ${application.recommendation-service.base-path}/recommendation-service/v1/recommendations
+    api-docs:
+      enabled: true
+    swagger-ui:
+      urls:
+        - name: Greeting API
+          url: /api-specs/greeting-api-spec.yaml
+        - name: Product API
+          url: /api-specs/product-api-spec.yaml
+    feature:
+      toggles:
+          recommendations: true
+          content_translation: true
+
+greeting:
+  greetings:
+    bob:
+      name: bob
+      message: Hello and welcome, ${greeting.greetings.bob.name}

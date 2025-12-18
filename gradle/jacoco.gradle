@@ -1,0 +1,103 @@
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.11"
+    reportsDirectory = layout.buildDirectory.dir("reports/coverage")
+}
+
+tasks.register('integrationTest', Test) {
+    description = "Defines the test type 'integrationTest' for thin integration test"
+    useJUnitPlatform()
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    maxParallelForks = 4
+
+    filter {
+        includeTestsMatching '*IT'
+    }
+
+    finalizedBy jacocoIntegrationTestReport
+}
+
+test {
+    filter {
+        excludeTestsMatching '*IT'
+    }
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    group = "Reporting"
+    description = "Creates the result report of the Unit Test"
+    dependsOn test
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/test.exec"))
+
+    reports {
+        csv.required = true
+        xml.required = false
+        html.required = true
+        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.xml").get().asFile
+        html.outputLocation = layout.buildDirectory.dir("reports/coverage")
+        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.csv").get().asFile
+    }
+
+    finalizedBy jacocoTestCoverageVerification
+}
+
+// Apply exclusions to jacocoTestReport after project evaluation
+afterEvaluate {
+    jacocoTestReport.classDirectories.setFrom(files(jacocoTestReport.classDirectories.files.collect {
+        fileTree(dir: it, exclude: filesExcludedFromCoverage)
+    }))
+}
+
+tasks.register('jacocoIntegrationTestReport', JacocoReport) {
+    dependsOn integrationTest
+    group = "Reporting"
+    description = "Creates the result report of the (Thin) Integration Test"
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/integrationTest.exec"))
+    classDirectories.setFrom(sourceSets.main.output)
+    sourceDirectories.setFrom(sourceSets.main.allSource)
+
+    reports {
+        csv.required = true
+        xml.required = false
+        html.required = true
+        xml.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.xml").get().asFile
+        html.outputLocation = layout.buildDirectory.dir("reports/coverageIT")
+        csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverageIT.csv").get().asFile
+    }
+}
+
+// Apply exclusions to jacocoIntegrationTestReport after project evaluation
+afterEvaluate {
+    jacocoIntegrationTestReport.classDirectories.setFrom(files(jacocoIntegrationTestReport.classDirectories.files.collect {
+        fileTree(dir: it, exclude: filesExcludedFromCoverage)
+    }))
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    description = "Verifies coverage based on defined thresholds on all tests (incl. Unit and Integration)"
+
+    executionData.setFrom(fileTree(layout.buildDirectory).include("jacoco/*.exec"))
+
+    violationRules {
+        rule {
+            enabled = true
+            failOnViolation = true
+            element = 'SOURCEFILE'
+            excludes = filesExcludedFromCoverage
+            limit {
+                counter = 'LINE'
+                minimum = minimumCoveragePerFile
+            }
+        }
+    }
+}
+
+check.dependsOn integrationTest
