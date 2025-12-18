@@ -1,6 +1,32 @@
+logging:
+  level:
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.web.client: DEBUG
+
 spring:
   application:
     name: intergalactic-marketplace
+  profiles:
+    active: local
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jws-algorithms: RS256
+          jwk-set-uri: http://localhost:8083/auth/realms/intergalactic-marketplace
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope: user:email
+            redirect-uri: http://localhost:8080/login/oauth2/code/github
+            authorization-grant-type: authorization_code
+        provider:
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
   jpa:
     show-sql: true
     open-in-view: false
@@ -21,6 +47,7 @@ spring:
       pool-name: intergalactic-marketplace-hikari-cp
   liquibase:
     enabled: true
+    database-change-log-lock-table: DATABASECHANGELOGLOCK
     change-log: classpath:liquibase/changelog.yaml
 
 application:

@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "id": "33221122-3322-1122-3322-112233221122",
+      "name": "Validate JWT Token",
+      "request": {
+        "method": "GET",
+        "urlPattern": "/auth/realms/intergalactic-marketplace/.well-known/jwks.json"
+      },
+      "response": {
+        "status": 200,
+        "bodyFileName": "jwks.json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import com.example.intergalactic_marketplace.repository.ProductRepository;
 import com.example.intergalactic_marketplace.repository.projection.ProductBasicProjection;
 import com.example.intergalactic_marketplace.service.ProductService;
 import com.example.intergalactic_marketplace.service.RecommendationService;
+import com.example.intergalactic_marketplace.service.exception.PersistenceException;
 import com.example.intergalactic_marketplace.service.exception.ProductCategoryNotFoundException;
 import com.example.intergalactic_marketplace.service.exception.ProductNotFoundException;
 import com.example.intergalactic_marketplace.service.mapper.ProductMapper;
@@ -184,8 +185,12 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void deleteProduct(String productId) {
-        log.info("deleteProduct: productId={}", productId);
+        try {
+            productRepository.deleteByNaturalId(productId);
+        } catch (Exception ex) {
+            log.error("deleteProduct: product with id {} not found", productId, ex);
 
-        productRepository.deleteByNaturalId(productId);
+            throw new PersistenceException(ex);
+        }
     }
 }
